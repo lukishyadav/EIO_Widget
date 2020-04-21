@@ -419,6 +419,7 @@ radio_button_group = RadioButtonGroup(
 
 
 def drs_function(attr, old, new):
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Adjusting presets to reduce load....</b><br></h4>'
     if radio_button_group.active==0:
         df=pd.read_csv('generated_data/darwin_rental_datagenerated.csv')
     elif radio_button_group.active==1:
@@ -468,6 +469,8 @@ def drs_function(attr, old, new):
     fdrs_end.max_date=Maxdate
     fdrs_end_hour.value=str(drs_end.value.hour)
     #print('drs_end_hour',drs_end_hour.value)
+    
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">You can start adjusting the widgets now!</b><br></h4>'
  
 
 radio_button_group.on_change('active', drs_function)
