@@ -33,6 +33,8 @@ from bokeh.models import Div
 from bokeh.models import Panel, Tabs
 from bokeh.models.widgets import DatePicker
 from datetime import timedelta
+from bokeh.models import CheckboxGroup
+
 map_repr='mercator'
 
 dfile='generated_data/vehicles_data.csv'
@@ -68,12 +70,19 @@ dre_month = Select(title="Month", value=str(month_values[1]), options=[str(x) fo
 dre_day = Select(title="Day", value=str(day_values[1]), options=[str(x) for x in list(range(1,32))])
 dre_hour = Select(title="Hour", value=str(hour_values[1]), options=[str(x) for x in list(range(1,25))])
 
-drs_start=DatePicker(min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0),value=Mindate)
-drs_start_hour = Select(value=str(hour_values[0]), options=[str(x) for x in list(range(0,24))])
+drs_start=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0),value=Mindate)
+drs_start_hour = Select(title='Hour of the day',value=str(hour_values[0]), options=[str(x) for x in list(range(0,24))])
 
-drs_end=DatePicker(min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0))
-drs_end_hour = Select(value=str(hour_values[1]), options=[str(x) for x in list(range(0,24))])
+drs_end=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0))
+drs_end_hour = Select(title='Hour of the day',value=str(hour_values[1]), options=[str(x) for x in list(range(0,24))])
 
+
+
+fdrs_start=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0),value=Mindate)
+fdrs_start_hour = Select(title='Hour of the day',value=str(hour_values[0]), options=[str(x) for x in list(range(0,24))])
+
+fdrs_end=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0))
+fdrs_end_hour = Select(title='Hour of the day',value=str(hour_values[1]), options=[str(x) for x in list(range(0,24))])
 
 
 
@@ -139,7 +148,8 @@ minlng=min(df['mrc_end_long_x'])
 
 
 #def my_slider_handler(attr,old,new):
-def my_slider_handler():    
+def my_slider_handler(): 
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Update in Progress....</b><br></h4>'
     completed.text=''
     range_slider1=idle_range_slider
     
@@ -233,6 +243,14 @@ def my_slider_handler():
     d_end_date=datetime.datetime(wid2.year,wid2.month,wid2.day,int(drs_end_hour.value))
     print('d_end_date',d_end_date)
 
+
+    fid=fdrs_start.value
+    start_date=datetime.datetime(fid.year,wid.month,fid.day,int(fdrs_start_hour.value))
+    print('start_date',start_date)
+    
+    fid2=fdrs_end.value
+    end_date=datetime.datetime(fid2.year,fid2.month,fid2.day,int(fdrs_end_hour.value))
+    print('end_date',end_date)
     #df=df.sample(int(5*len(df)/100))
     #svalue=sdate_input.value
     #print(pd.datetime.strptime(svalue, '%Y-%m-%d %H:%M:%S'))
@@ -243,11 +261,11 @@ def my_slider_handler():
     try:
         #print(len(df),d_start_date,d_end_date)
         #print(hour_range_slider.value[1])
-        if date_range_radio.active==0:
-         #print('1st')
+        if 0 in checkbox_group.active:
+         print('1st')
          df=df[(df['rental_ended_at_x']<str(d_end_date)) & (df['rental_started_at_y']>str(d_start_date))]
-        if idle_range_radio.active==0:
-         #print('2nd')   
+        if 1 in checkbox_group.active:
+         print('2nd')   
          df=df[(df['rental_ended_at_x']<=str(start_date)) & (df['rental_started_at_y']>=str(end_date))]
         
         
@@ -266,7 +284,7 @@ def my_slider_handler():
         
         if maxlng==minlng or maxlat==minlat:
             raise Exception("Sorry, no numbers below zero")
-        print(df[['mrc_end_lat_x','mrc_end_long_x']].values)
+        #print(df[['mrc_end_lat_x','mrc_end_long_x']].values)
         
         
 
@@ -278,7 +296,7 @@ def my_slider_handler():
         
         print(maxlat,maxlng,minlat,minlng)
         print('within radius Counter',len(df['within_radius']))
-        print(hour_range_slider.value[1])
+        #print(hour_range_slider.value[1])
         
     
         display_columns=df.columns
@@ -287,6 +305,24 @@ def my_slider_handler():
           dictionary[col_name]=df[col_name]
         
         datapoints_source.data = dictionary  
+        
+        
+        circle_plot.glyph.size=size_range_slider.value
+    
+        circle_plot.glyph.fill_alpha=alpha_range_slider.value
+        
+        if map_type.active==0:
+            pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
+            palet=decided_palet.copy()
+            color_mapper = LinearColorMapper(palette=palet)
+            circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
+        elif map_type.active==1:
+            pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Ageing Cars</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
+            #print(map_figure.title.text)
+            palet=decided_palet.copy()
+            palet.reverse()
+            color_mapper = LinearColorMapper(palette=palet)
+            circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
     except:
         display_columns=df.columns
         for col_name in display_columns:
@@ -294,26 +330,11 @@ def my_slider_handler():
           dictionary[col_name]=[]
         
         datapoints_source.data = dictionary 
-        exception.text='<b>EXCEPTION! Try expanding date range</b>'
+        pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Error! Try expanding date slider</b><br></h4>'
         #print(dictionary)
     #pre.text= """Filtered Idle spots:"""+str(len(df))  
     
-    circle_plot.glyph.size=size_range_slider.value
-    
-    circle_plot.glyph.fill_alpha=alpha_range_slider.value
-    
-    if map_type.active==0:
-        pre.text='<b>High Utilization Areas</b><br>'+"""<b>Filtered Idle spots: </b>"""+str(len(df))
-        palet=decided_palet.copy()
-        color_mapper = LinearColorMapper(palette=palet)
-        circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
-    elif map_type.active==1:
-        pre.text='<b>Ageing Cars</b><br>'+"""<b>Filtered Idle spots: </b>"""+str(len(df))
-        print(map_figure.title.text)
-        palet=decided_palet.copy()
-        palet.reverse()
-        color_mapper = LinearColorMapper(palette=palet)
-        circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
+
          
         
     pdict['active']= radio_button_group.active   
@@ -363,9 +384,15 @@ date_range_radio = RadioButtonGroup(name='Date Range Filter',
 idle_range_radio= RadioButtonGroup(name='Idle  Range Filter',
         labels=["Idle  Range Filte On", "Idle  Range Filte Off"], active=1)
 
+
+checkbox_group = CheckboxGroup(
+        labels=["Cumulative Date Filter", "Fine Date Filter"], active=[0])
+
+
+
 hour_range_slider = RangeSlider(start=0, end=360, value=(0,150), step=1, title="Hour Slider")
 
-alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Alpha Sliderr")
+alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Alpha Slider")
 
 size_range_slider = Slider(start=4, end=50, value=4, step=1, title="Size Slider")
 
@@ -384,6 +411,10 @@ hovertool_timer=TextAreaInput(value="", rows=1, title="Select display time for t
 
 radio_button_group = RadioButtonGroup(
         labels=["Darwin","Darwin E","Darwin S","Daytona","Eiffel"], active=3)
+
+
+
+
 
 
 
@@ -407,7 +438,7 @@ def drs_function(attr, old, new):
 
     Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
     
-    print('min,max',Mindate,Maxdate)
+    #print('min,max',Mindate,Maxdate)
     
     year_values=(Mindate.year,Maxdate.year)
     month_values=(Mindate.month,Maxdate.month)
@@ -418,13 +449,25 @@ def drs_function(attr, old, new):
     drs_start.min_date=Mindate
     drs_start.max_date=Maxdate
     drs_start_hour.value=str(hour_values[0])
-    print('drs_start_hour',drs_start_hour.value)
+    # print('drs_start_hour',drs_start_hour.value)
     
     drs_end.value=Mindate+ timedelta(hours=24)
     drs_end.min_date=Mindate
     drs_end.max_date=Maxdate
     drs_end_hour.value=str(drs_end.value.hour)
-    print('drs_end_hour',drs_end_hour.value)
+    #print('drs_end_hour',drs_end_hour.value)
+    
+    fdrs_start.value=Mindate
+    fdrs_start.min_date=Mindate
+    fdrs_start.max_date=Maxdate
+    fdrs_start_hour.value=str(hour_values[0])
+    #print('drs_start_hour',drs_start_hour.value)
+    
+    fdrs_end.value=Mindate+ timedelta(hours=24)
+    fdrs_end.min_date=Mindate
+    fdrs_end.max_date=Maxdate
+    fdrs_end_hour.value=str(drs_end.value.hour)
+    #print('drs_end_hour',drs_end_hour.value)
  
 
 radio_button_group.on_change('active', drs_function)
@@ -537,10 +580,13 @@ from bokeh.models import PreText
 
 output_file("div.html")
 
-pre = Div(text='<b>High Utilization Areas</b><br>'+"""<b>Filtered Idle spots: </b>"""+str(len(df)),
-width=500, height=100)
 
-completed = Div(text='<b>Update Completed!</b>',
+
+
+pre = Div(text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>',
+width=500, height=50)
+
+completed = Div(text='<h4><b style="color:slategray">Update Completed!<br></b><h4>',
 width=500, height=10)
 
 exception = Div(text='<b></b>',
@@ -548,6 +594,11 @@ width=500, height=20)
 
 
 
+
+
+carsharing_text = Div(text='<h2 style="color:darkslategray;font-family: "Lucida Console", Courier, monospace;">Car Sharing Utilization Tracking Tool</h2>',
+width=500, height=40)
+"""
 dre_p1=Panel(child=row(drs_start,width=150), title="Date Start Filter")
 dre_p12=Panel(child=row(drs_start_hour,width=130), title="Hour Start Filter")
 dre_p1=Tabs(tabs=[dre_p1])
@@ -558,6 +609,25 @@ dre_p2=Panel(child=row(drs_end,width=150), title="Date End Filter")
 dre_p22=Panel(child=row(drs_end_hour,width=130), title="Hour End Filter")
 dre_p2=Tabs(tabs=[dre_p2])
 dre_p22=Tabs(tabs=[dre_p22])
+"""
+
+fdre_p1=Panel(child=row(fdrs_start,fdrs_start_hour,width=280), title="From")
+fdre_p1=Tabs(tabs=[fdre_p1])
+fdre_p2=Panel(child=row(fdrs_end,fdrs_end_hour,width=280), title="To")
+fdre_p2=Tabs(tabs=[fdre_p2])
+fine_df=Panel(child=row(column(row(fdre_p1,width=350)),column(row(fdre_p2,width=350))),title="Fine Date Range Filter")
+#fine_df=Tabs(tabs=[fine_df])
+
+dre_p1=Panel(child=row(drs_start,drs_start_hour,width=280), title="From")
+dre_p1=Tabs(tabs=[dre_p1])
+dre_p2=Panel(child=row(drs_end,drs_end_hour,width=280), title="To")
+dre_p2=Tabs(tabs=[dre_p2])
+cum_df=Panel(child=row(column(row(dre_p1,width=350)),column(row(dre_p2,width=350))),title="Cumulative Date Range Filter")
+cum_df=Tabs(tabs=[cum_df,fine_df])
+
+
+
+
 
 
 dre_p3=Panel(child=row(dre_year,dre_month,dre_day,dre_hour,width=260), title="DRE_End")
@@ -565,18 +635,21 @@ dre_p3=Tabs(tabs=[dre_p3])
 
 
 
-layout = column(row(column(row(pre,height=50),map_figure,completed, exception,
+layout = column(carsharing_text,row(column(row(pre,height=100),map_figure, exception,
                 width=800),  
             column(row(height=50),
-                widgetbox(radio_button_group),  
-                widgetbox(map_type),
-                widgetbox(date_range_radio),
-                widgetbox(idle_range_radio),
-                widgetbox(bt),
-                widgetbox(hovertool_widget),
-                widgetbox(hour_range_slider),
-                widgetbox(alpha_range_slider),
-                widgetbox(size_range_slider),width=400),  
+                widgetbox(height=60),
+                widgetbox(radio_button_group,height=50),  
+                widgetbox(checkbox_group,height=50),
+                widgetbox(hour_range_slider,height=50),
+                widgetbox(map_type,height=50),
+                widgetbox(bt,height=50),
+                widgetbox(height=100),
+                cum_df,
+                row(height=50),
+                #fine_df,
+#                widgetbox(hovertool_widget),
+                width=400),  
                 #widgetbox(slider,width=350),
                 #widgetbox(Min_n, width=300),
                 #Percent,            
@@ -585,8 +658,9 @@ layout = column(row(column(row(pre,height=50),map_figure,completed, exception,
         #row(widgetbox(idle_range_slider,width=1400),width=2300),
         #row(date_range_start,date_range_end),
         #row(idle_range_start,idle_range_end),
-        row(column(row(dre_p1,dre_p12,width=350)),column(row(dre_p2,dre_p22,width=350))),
-        row(dre_p3,width=200),
+        widgetbox(alpha_range_slider),
+        widgetbox(size_range_slider),
+        #row(dre_p3,width=200),
         #row(drs_start,drs_end,width=400)
         
         )

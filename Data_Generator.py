@@ -12,11 +12,12 @@ from datetime import datetime
 from pyproj import Proj
 from math import sqrt
 import numpy as np
+from math import radians, cos, sin, asin, sqrt
 
 fname='wave3.csv'
 
 fname='daytona_rental_data.csv'
-fname='daytona_rental_data.csv'
+fname='eiffel_rental_data.csv'
 df=pd.read_csv(fname)
 
 
