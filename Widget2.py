@@ -392,9 +392,9 @@ checkbox_group = CheckboxGroup(
 
 hour_range_slider = RangeSlider(start=0, end=360, value=(0,150), step=1, title="Hour Slider")
 
-alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Alpha Slider")
+alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Spot Transparency")
 
-size_range_slider = Slider(start=4, end=50, value=4, step=1, title="Size Slider")
+size_range_slider = Slider(start=4, end=50, value=4, step=1, title="Spot Size")
 
 
 bt = Button(label='Update Plot')
@@ -646,8 +646,10 @@ layout = column(carsharing_text,row(column(row(pre,height=100),map_figure, excep
                 widgetbox(checkbox_group,height=50),
                 widgetbox(hour_range_slider,height=50),
                 widgetbox(map_type,height=50),
+                widgetbox(alpha_range_slider),
+                widgetbox(size_range_slider),
                 widgetbox(bt,height=50),
-                widgetbox(height=100),
+                widgetbox(height=70),
                 cum_df,
                 row(height=50),
                 #fine_df,
@@ -661,8 +663,6 @@ layout = column(carsharing_text,row(column(row(pre,height=100),map_figure, excep
         #row(widgetbox(idle_range_slider,width=1400),width=2300),
         #row(date_range_start,date_range_end),
         #row(idle_range_start,idle_range_end),
-        widgetbox(alpha_range_slider),
-        widgetbox(size_range_slider),
         #row(dre_p3,width=200),
         #row(drs_start,drs_end,width=400)
         
