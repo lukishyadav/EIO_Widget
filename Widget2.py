@@ -408,7 +408,7 @@ alpha_range_slider.on_change('value', alpha_size)
 size_range_slider.on_change('value', alpha_size)
 
 
-bt = Button(label='Update Plot',default_size=10)
+bt = Button(label='Update Plot',default_size=300,css_classes=['custom_button_1'])
 bt.on_click(my_slider_handler)
 
 
