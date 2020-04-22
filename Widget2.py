@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Mar 26 16:44:08 2020
-
 @author: lukishyadav
 """
 from bokeh.models import TextInput,LinearColorMapper
@@ -306,10 +305,11 @@ def my_slider_handler():
         
         datapoints_source.data = dictionary  
         
-        
+        """
         circle_plot.glyph.size=size_range_slider.value
     
         circle_plot.glyph.fill_alpha=alpha_range_slider.value
+        """
         
         if map_type.active==0:
             pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
@@ -397,7 +397,18 @@ alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Spot Tran
 size_range_slider = Slider(start=4, end=50, value=4, step=1, title="Spot Size")
 
 
-bt = Button(label='Update Plot')
+def alpha_size(attr, old, new):
+    circle_plot.glyph.size=size_range_slider.value
+    
+    circle_plot.glyph.fill_alpha=alpha_range_slider.value
+    
+
+alpha_range_slider.on_change('value', alpha_size)
+
+size_range_slider.on_change('value', alpha_size)
+
+
+bt = Button(label='Update Plot',default_size=10)
 bt.on_click(my_slider_handler)
 
 
@@ -606,8 +617,6 @@ dre_p1=Panel(child=row(drs_start,width=150), title="Date Start Filter")
 dre_p12=Panel(child=row(drs_start_hour,width=130), title="Hour Start Filter")
 dre_p1=Tabs(tabs=[dre_p1])
 dre_p12=Tabs(tabs=[dre_p12])
-
-
 dre_p2=Panel(child=row(drs_end,width=150), title="Date End Filter")
 dre_p22=Panel(child=row(drs_end_hour,width=130), title="Hour End Filter")
 dre_p2=Tabs(tabs=[dre_p2])
@@ -646,12 +655,14 @@ layout = column(carsharing_text,row(column(row(pre,height=100),map_figure, excep
                 widgetbox(checkbox_group,height=50),
                 widgetbox(hour_range_slider,height=50),
                 widgetbox(map_type,height=50),
+                widgetbox(height=30),
+                cum_df,
+                widgetbox(height=30),
+                widgetbox(bt,height=50),
                 widgetbox(alpha_range_slider),
                 widgetbox(size_range_slider),
-                widgetbox(bt,height=50),
-                widgetbox(height=70),
-                cum_df,
-                row(height=50),
+
+                #row(height=50),
                 #fine_df,
 #                widgetbox(hovertool_widget),
                 width=400),  
