@@ -7,18 +7,18 @@ Created on Thu Mar 26 16:44:08 2020
 """
 from bokeh.models import TextInput,LinearColorMapper
 from bokeh.io import curdoc
-import logging
+#import logging
 from bokeh.layouts import column,layout,row,widgetbox
 import pandas as pd
 #import my_module
 import datetime
-import seaborn as sns
-from pyproj import Proj
+#import seaborn as sns
+#from pyproj import Proj
 from bokeh.plotting import figure, show, output_file, ColumnDataSource
 from bokeh.transform import factor_cmap
 from bokeh.tile_providers import CARTODBPOSITRON 
 import numpy as np
-from sklearn.cluster import DBSCAN 
+#from sklearn.cluster import DBSCAN 
 from bokeh.models.widgets import Button, RadioButtonGroup, Select, Slider,TextInput,TextAreaInput
 from bokeh.models import TextInput
 from collections import Counter
