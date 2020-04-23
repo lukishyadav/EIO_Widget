@@ -44,9 +44,10 @@ df=pd.read_csv(dfile)
 df=df[df['within_radius']==1]
 #df=df.sample(int(5*len(df)/100))
 
-
-Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
-Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
+global Mindate
+global Maxdate
+Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
+Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
 
 
 pdict={}
@@ -58,33 +59,6 @@ year_values=(Mindate.year,Maxdate.year)
 month_values=(Mindate.month,Maxdate.month)
 day_values=(Mindate.day,Maxdate.day)
 hour_values=(Mindate.hour,Maxdate.hour)
-
-drs_year = Select(title="Year", value=str(year_values[0]), options=[str(x) for x in year_values])
-drs_month = Select(title="Month", value=str(month_values[0]), options=[str(x) for x in list(range(1,13))])
-drs_day = Select(title="Day", value=str(day_values[0]), options=[str(x) for x in list(range(1,32))])
-drs_hour = Select(title="Hour", value=str(hour_values[0]), options=[str(x) for x in list(range(1,25))])
-
-dre_year = Select(title="Year", value=str(year_values[1]), options=[str(x) for x in year_values])
-dre_month = Select(title="Month", value=str(month_values[1]), options=[str(x) for x in list(range(1,13))])
-dre_day = Select(title="Day", value=str(day_values[1]), options=[str(x) for x in list(range(1,32))])
-dre_hour = Select(title="Hour", value=str(hour_values[1]), options=[str(x) for x in list(range(1,25))])
-
-drs_start=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0),value=Mindate)
-drs_start_hour = Select(title='Hour of the day',value=str(hour_values[0]), options=[str(x) for x in list(range(0,24))])
-
-drs_end=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0))
-drs_end_hour = Select(title='Hour of the day',value=str(hour_values[1]), options=[str(x) for x in list(range(0,24))])
-
-
-
-fdrs_start=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0),value=Mindate)
-fdrs_start_hour = Select(title='Hour of the day',value=str(hour_values[0]), options=[str(x) for x in list(range(0,24))])
-
-fdrs_end=DatePicker(title='Date',min_date=datetime.datetime(2017, 1, 1, 0, 0),max_date=datetime.datetime(2020, 6, 1, 0, 0))
-fdrs_end_hour = Select(title='Hour of the day',value=str(hour_values[1]), options=[str(x) for x in list(range(0,24))])
-
-
-
 
 #display_columns=df.columns
 
@@ -104,8 +78,8 @@ vdict['hovertool_widget']=0
 #df=df[(df['rental_ended_at_x']<=svalue) & (df['rental_started_at_y']>=evalue)]
 
 
-d_start_date="2020-01-03 00:00:00"
-d_end_date="2020-01-03 01:00:00"
+d_start_date=Mindate+timedelta(hours=1)
+d_end_date=Mindate+timedelta(hours=24)
 
 
 df=df[(df['rental_ended_at_x']<str(d_end_date)) & (df['rental_started_at_y']>str(d_start_date))]
@@ -150,9 +124,9 @@ minlng=min(df['mrc_end_long_x'])
 def my_slider_handler(): 
     pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Update in Progress....</b><br></h4>'
     completed.text=''
-    range_slider1=idle_range_slider
+    #range_slider1=idle_range_slider
     
-    date_range_slider1=date_range_slider
+    #date_range_slider1=date_range_slider
     
     hour_max=hour_range_slider.value[1]
     hour_min=hour_range_slider.value[0]
@@ -183,9 +157,9 @@ def my_slider_handler():
     
     """
     #print('dt_pckr_strt',dt_pckr_strt.value,type(dt_pckr_strt.value),dt_pckr_strt.value.year)
-    print(dre_year.value,dre_month.value,dre_day.value,dre_hour.value)
-    start_date=idle_range_start.value
-    end_date=idle_range_end.value
+    #print(dre_year.value,dre_month.value,dre_day.value,dre_hour.value)
+    #start_date=idle_range_start.value
+    #end_date=idle_range_end.value
     
     
     
@@ -194,7 +168,7 @@ def my_slider_handler():
     #d_end_date=date_range_end.value
     
     
-    print(start_date,end_date)
+    #print(start_date,end_date)
     
     if radio_button_group.active==0:
         df=pd.read_csv('generated_data/darwin_rental_datagenerated.csv')
@@ -212,6 +186,7 @@ def my_slider_handler():
     
     
     """
+    Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
     Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
     Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
     
@@ -234,22 +209,20 @@ def my_slider_handler():
     
     """
     
-    wid=drs_start.value
-    d_start_date=datetime.datetime(wid.year,wid.month,wid.day,int(drs_start_hour.value))
+    d_start_date=Mindate+timedelta(hours=date_widget.value[0])
+    d_end_date=Mindate+timedelta(hours=date_widget.value[1])
+    
     print('d_start_date',d_start_date)
-    
-    wid2=drs_end.value
-    d_end_date=datetime.datetime(wid2.year,wid2.month,wid2.day,int(drs_end_hour.value))
     print('d_end_date',d_end_date)
-
-
-    fid=fdrs_start.value
-    start_date=datetime.datetime(fid.year,wid.month,fid.day,int(fdrs_start_hour.value))
-    print('start_date',start_date)
     
-    fid2=fdrs_end.value
-    end_date=datetime.datetime(fid2.year,fid2.month,fid2.day,int(fdrs_end_hour.value))
+    start_date=Mindate+timedelta(hours=fine_date_widget.value[0])
+    end_date=Mindate+timedelta(hours=fine_date_widget.value[1])
+    
+    print('start_date',start_date)
     print('end_date',end_date)
+    
+    print('Mindate',Mindate)
+    print('radio buttomn active',radio_button_group.active)
     #df=df.sample(int(5*len(df)/100))
     #svalue=sdate_input.value
     #print(pd.datetime.strptime(svalue, '%Y-%m-%d %H:%M:%S'))
@@ -263,6 +236,7 @@ def my_slider_handler():
         if 0 in checkbox_group.active:
          print('1st')
          df=df[(df['rental_ended_at_x']<str(d_end_date)) & (df['rental_started_at_y']>str(d_start_date))]
+         print('post 1st')
         if 1 in checkbox_group.active:
          print('2nd')   
          df=df[(df['rental_ended_at_x']<=str(start_date)) & (df['rental_started_at_y']>=str(end_date))]
@@ -390,7 +364,7 @@ checkbox_group = CheckboxGroup(
 
 
 
-hour_range_slider = RangeSlider(start=0, end=360, value=(0,150), step=1, title="Hour Slider")
+hour_range_slider = RangeSlider(start=0, end=360, value=(0,150), step=1, title="Idle time for a vehicle (hours)")
 
 alpha_range_slider = Slider(start=0, end=1, value=0.4, step=.1, title="Spot Transparency")
 
@@ -425,6 +399,34 @@ radio_button_group = RadioButtonGroup(
 
 
 
+date_text = Div(text='<b style="color:black">'+str(Mindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(Maxdate)+'<br></b>',width=500, height=40)
+
+
+
+fine_date_text = Div(text='<b style="color:black">'+str(Mindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(Maxdate)+'<br></b>',width=500, height=40)
+
+
+def date_function(attr, old, new):
+    NMindate=Mindate+timedelta(hours=date_widget.value[0])
+    NMaxdate=Mindate+timedelta(hours=date_widget.value[1])
+    
+    fNMindate=Mindate+timedelta(hours=fine_date_widget.value[0])
+    fNMaxdate=Mindate+timedelta(hours=fine_date_widget.value[1])
+    
+    date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
+    
+    fine_date_text.text='<b style="color:black">'+str(fNMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(fNMaxdate)+'<br></b>'
+
+date_widget = RangeSlider(start=0, end=4400, value=(1,24), step=1,show_value=False,tooltips=False)
+
+date_widget.on_change('value', date_function)
+
+
+fine_date_widget = RangeSlider(start=0, end=4400, value=(1,24), step=1,show_value=False,tooltips=False)
+
+fine_date_widget.on_change('value', date_function)
+  
+
 
 
 
@@ -445,50 +447,43 @@ def drs_function(attr, old, new):
     #df=pd.read_csv(dfile)
     df=df[df['within_radius']==1]
     
-    Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
+    global Mindate
+    Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
     
 
-    Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
+    Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')+timedelta(hours=1)
+    
+    
+    NMindate=Mindate+timedelta(hours=0)
+    NMaxdate=Mindate+timedelta(hours=24)
+    
+    date_widget.value=[0,24]
+    
+    fine_date_widget.value=[0,24]
+    
+    
     
     #print('min,max',Mindate,Maxdate)
-    
+    """
     year_values=(Mindate.year,Maxdate.year)
     month_values=(Mindate.month,Maxdate.month)
     day_values=(Mindate.day,Maxdate.day)
     hour_values=(Mindate.hour,Maxdate.hour)
-
-    drs_start.value=Mindate
-    drs_start.min_date=Mindate
-    drs_start.max_date=Maxdate
-    drs_start_hour.value=str(hour_values[0])
-    # print('drs_start_hour',drs_start_hour.value)
+    """
     
-    drs_end.value=Mindate+ timedelta(hours=24)
-    drs_end.min_date=Mindate
-    drs_end.max_date=Maxdate
-    drs_end_hour.value=str(drs_end.value.hour)
-    #print('drs_end_hour',drs_end_hour.value)
-    
-    fdrs_start.value=Mindate
-    fdrs_start.min_date=Mindate
-    fdrs_start.max_date=Maxdate
-    fdrs_start_hour.value=str(hour_values[0])
-    #print('drs_start_hour',drs_start_hour.value)
-    
-    fdrs_end.value=Mindate+ timedelta(hours=24)
-    fdrs_end.min_date=Mindate
-    fdrs_end.max_date=Maxdate
-    fdrs_end_hour.value=str(drs_end.value.hour)
-    #print('drs_end_hour',drs_end_hour.value)
     
     pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">You can start adjusting the widgets now!</b><br></h4>'
  
-
+    date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
+    
+    fine_date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
+    
+    
 radio_button_group.on_change('active', drs_function)
 
 
 map_type=RadioButtonGroup(
-        labels=["High Utilization Areas","Aging Cars"], active=0)
+        labels=["Find High Utilization Areas","Find Aging Cars"], active=0)
 
 
 
@@ -623,53 +618,47 @@ dre_p2=Tabs(tabs=[dre_p2])
 dre_p22=Tabs(tabs=[dre_p22])
 """
 
-fdre_p1=Panel(child=row(fdrs_start,fdrs_start_hour,width=280), title="From")
-fdre_p1=Tabs(tabs=[fdre_p1])
-fdre_p2=Panel(child=row(fdrs_end,fdrs_end_hour,width=280), title="To")
-fdre_p2=Tabs(tabs=[fdre_p2])
-fine_df=Panel(child=row(column(row(fdre_p1,width=350)),column(row(fdre_p2,width=350))),title="Fine Date Range Filter")
-#fine_df=Tabs(tabs=[fine_df])
-
-dre_p1=Panel(child=row(drs_start,drs_start_hour,width=280), title="From")
-dre_p1=Tabs(tabs=[dre_p1])
-dre_p2=Panel(child=row(drs_end,drs_end_hour,width=280), title="To")
-dre_p2=Tabs(tabs=[dre_p2])
-cum_df=Panel(child=row(column(row(dre_p1,width=350)),column(row(dre_p2,width=350))),title="Cumulative Date Range Filter")
-cum_df=Tabs(tabs=[cum_df,fine_df])
 
 
-
-
-
-
+"""
 dre_p3=Panel(child=row(dre_year,dre_month,dre_day,dre_hour,width=260), title="DRE_End")
 dre_p3=Tabs(tabs=[dre_p3])
+"""
+
+CDF=Panel(child=column(widgetbox(date_text,height=30),widgetbox(date_widget,height=40,width=800)), title="Cumulative Date Filter")
+FDF=Panel(child=column(widgetbox(fine_date_text,height=30),widgetbox(fine_date_widget,height=40,width=800)), title="Fine Date Filter")
+
+date_tabs=Tabs(tabs=[CDF,FDF])
 
 
 
-layout = column(carsharing_text,row(column(row(pre,height=100),map_figure, exception,
-                width=800),  
-            column(row(height=50),
-                widgetbox(height=60),
+widgets=Panel(child=column(
+                widgetbox(height=10),
                 widgetbox(radio_button_group,height=50),  
+                widgetbox(height=10),
                 widgetbox(checkbox_group,height=50),
+                widgetbox(height=10),
                 widgetbox(hour_range_slider,height=50),
+                widgetbox(height=10),
                 widgetbox(map_type,height=50),
-                widgetbox(height=30),
-                cum_df,
-                widgetbox(height=30),
+                widgetbox(height=10),
+                date_tabs,
+                widgetbox(height=10),
                 widgetbox(bt,height=50),
-                widgetbox(alpha_range_slider),
-                widgetbox(size_range_slider),
 
-                #row(height=50),
-                #fine_df,
-#                widgetbox(hovertool_widget),
-                width=400),  
+                width=400)  , title="Widgets")
+
+plot_options=Panel(child=column(widgetbox(alpha_range_slider),
+                widgetbox(size_range_slider)), title="Plot Options")
+
+w_tabs=Tabs(tabs=[widgets,plot_options])
+layout = column(carsharing_text,row(column(row(pre,height=100),map_figure,
+                width=800),column(widgetbox(height=100),row(w_tabs))
+            
                 #widgetbox(slider,width=350),
                 #widgetbox(Min_n, width=300),
                 #Percent,            
-        ),
+        ), 
         #row(widgetbox(date_range_slider,width=1400),width=2300),
         #row(widgetbox(idle_range_slider,width=1400),width=2300),
         #row(date_range_start,date_range_end),
