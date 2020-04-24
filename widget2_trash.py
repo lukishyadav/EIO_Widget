@@ -5,6 +5,7 @@ Created on Thu Mar 26 16:44:08 2020
 @author: lukishyadav
 """
 from bokeh.models import TextInput,LinearColorMapper
+from bokeh.transform import factor_cmap
 from bokeh.io import curdoc
 #import logging
 from bokeh.layouts import column,layout,row,widgetbox
@@ -14,7 +15,7 @@ import datetime
 #import seaborn as sns
 #from pyproj import Proj
 from bokeh.plotting import figure, show, output_file, ColumnDataSource
-from bokeh.transform import factor_cmap
+from bokeh.transform import factor_cmap,linear_cmap
 from bokeh.tile_providers import CARTODBPOSITRON 
 import numpy as np
 #from sklearn.cluster import DBSCAN 
@@ -95,7 +96,18 @@ df['rental_ended_at_x']=df['rental_ended_at_x'].apply(lambda x:datetime.datetime
 df['rental_started_at_y']=df['rental_started_at_y'].apply(lambda x:datetime.datetime.strptime(x[0:19], '%Y-%m-%d %H:%M:%S'))
 df['idle_hours']=df.apply(lambda x:(((x['rental_started_at_y']-x['rental_ended_at_x']).total_seconds())/3600),axis=1)
 
+
 df=df[(df['idle_hours']<150) & (df['idle_hours']>0) ]
+
+maxidle=max(df['idle_hours'])
+v=maxidle/6 
+bin_ranges = [0,v,2*v,3*v,4*v,5*v]
+bin_names = [1,2,3,4,5]
+#df['M_range'] = pd.cut(np.array(df['idle_hours']), bins=bin_ranges,include_lowest=True)
+df['idle_hours'] = pd.cut(np.array(df['idle_hours']), bins=bin_ranges,labels=bin_names,include_lowest =True)
+df['idle_hours'].fillna(5,inplace=True)
+
+#df['idle_hours']=df['idle_hours'].astype('str')
 #df = pd.read_csv(infile, parse_dates=['rental_booked_at_y', 'rental_started_at_y', 'rental_ended_at_y','rental_booked_at_x', 'rental_started_at_x', 'rental_ended_at_x'], date_parser=dateparse)
 
 
@@ -252,7 +264,19 @@ def my_slider_handler():
         df['idle_hours']=df.apply(lambda x:(((x['rental_started_at_y']-x['rental_ended_at_x']).total_seconds())/3600),axis=1)
 
         df=df[(df['idle_hours']<hour_max) & (df['idle_hours']>hour_min)]
+        
+        
+        maxidle=max(df['idle_hours'])
+        v=maxidle/6 
+        bin_ranges = [0,v,2*v,3*v,4*v,5*v]
+        bin_names = [1,2,3,4,5]
+        #df['M_range'] = pd.cut(np.array(df['idle_hours']), bins=bin_ranges,include_lowest=True)
+        df['idle_hours'] = pd.cut(np.array(df['idle_hours']), bins=bin_ranges,labels=bin_names,include_lowest =True)
+        df['idle_hours'].fillna(5,inplace=True)
+        
+        #df['idle_hours']=df['idle_hours'].astype('str')
 
+        
         maxlat=max(df['mrc_end_lat_x'])
         minlat=min(df['mrc_end_lat_x'])
         
@@ -286,8 +310,8 @@ def my_slider_handler():
         print(maxlat,maxlng,minlat,minlng)
         print('within radius Counter',len(df['within_radius']))
         #print(hour_range_slider.value[1])
-        global fd
-        fd=df.copy()
+        
+    
         display_columns=df.columns
         for col_name in display_columns:
         # if col_name not in [X,Y]:
@@ -295,6 +319,11 @@ def my_slider_handler():
         
         datapoints_source.data = dictionary  
         
+        
+        
+        
+        th=list(set(df['idle_hours']))
+        mapper['transform'].factors=th
         """
         circle_plot.glyph.size=size_range_slider.value
     
@@ -326,9 +355,9 @@ def my_slider_handler():
 
 
          
-    color_mapper.high=max(df['idle_hours'])
-    color_mapper.low=min(df['idle_hours']) 
-    color_bar.color_mapper=color_mapper
+    #color_mapper.high=max(df['idle_hours'])
+    #color_mapper.low=min(df['idle_hours']) 
+    #color_bar.color_mapper=color_mapper
     
     pdict['active']= radio_button_group.active   
     completed.text='<b>Update Completed!</b>'
@@ -446,68 +475,11 @@ fine_date_widget = RangeSlider(start=0, end=4400, value=(1,24), step=1,show_valu
 fine_date_widget.on_change('value', date_function)
   
 
-def point_selector_f(attr, old, new):
-    print(max(fd['idle_hours']))
-    max_idle=max(fd['idle_hours'])
-    idle_interval=max_idle/5
-    print(idle_interval)
-    if 0 in point_selector.active:
-        fd1=fd[fd['idle_hours']<idle_interval]
-    else:
-        fd1=pd.DataFrame(data=[],columns=[])
-    if 1 in point_selector.active:
-        fd2=fd[(fd['idle_hours']>=idle_interval) & (fd['idle_hours']<2*idle_interval)]
-    else:
-        fd2=pd.DataFrame(data=[],columns=[])
-    if 2 in point_selector.active:
-        fd3=fd[(fd['idle_hours']>=2*idle_interval) & (fd['idle_hours']<3*idle_interval)]
-    else:
-        fd3=pd.DataFrame(data=[],columns=[])
-    if 3 in point_selector.active:
-        fd4=fd[(fd['idle_hours']>=3*idle_interval) & (fd['idle_hours']<4*idle_interval)]
-    else:
-        fd4=pd.DataFrame(data=[],columns=[])
-    if 4 in point_selector.active:
-        fd5=fd[(fd['idle_hours']>=4*idle_interval)]
-    else:
-        fd5=pd.DataFrame(data=[],columns=[])
-    
-    """    
-    if 5 in point_selector.active:
-        pass
-    else:
-        fd2=pd.DataFrame(data=[],columns=[])
-    """      
-    df_main_list=[]  
-    df_list=[fd1,fd2,fd3,fd4,fd5]
-    for x in df_list:
-       if len(x)!=0:
-           df_main_list.append(x)
-    
-    try:       
-        FD=pd.concat(df_main_list, ignore_index=True)       
-    
 
-        display_columns=FD.columns
-        for col_name in display_columns:
-        # if col_name not in [X,Y]:
-          dictionary[col_name]=FD[col_name]
-        
-        datapoints_source.data = dictionary  
-    except:
-        display_columns=fd.columns
-        for col_name in display_columns:
-        # if col_name not in [X,Y]:
-          dictionary[col_name]=[]
-        
-        datapoints_source.data = dictionary 
-       
 
 
 point_selector = CheckboxGroup(
-        labels=["", "","","",""], active=[0,1,2,3,4])
-
-point_selector.on_change('active', point_selector_f)
+        labels=["", "","","",""], active=[0])
 
 
 def drs_function(attr, old, new):
@@ -629,9 +601,16 @@ palet=decided_palet.copy()
 
 color_mapper = LinearColorMapper(palette=palet)
 
-color_mapper.high=max(df['idle_hours'])
-color_mapper.low=min(df['idle_hours'])
+#color_mapper.high=max(df['idle_hours'])
+#color_mapper.low=min(df['idle_hours'])
 
+
+
+th=list(set(df['idle_hours']))
+#th=[str(x) for x in th]
+
+
+mapper=linear_cmap('idle_hours', palet, th[0],th[-1])
 
 """
     map_figure.circle(x='mrc_end_long_x', y='mrc_end_lat_x', 
@@ -654,18 +633,18 @@ def plot_points(map_figure,datapoints_source):
 
 
 #plot_points(map_figure,datapoints_source)
-noise_point_size = 1
-cluster_point_size = 10
+#noise_point_size = 1
+#cluster_point_size = 10
 
 print(maxlat,maxlng,minlat,minlng)
 circle_plot=map_figure.circle(x='mrc_end_long_x', y='mrc_end_lat_x', 
                   #size=cluster_point_size,
                   fill_alpha=0.4,
-                  source=datapoints_source,fill_color={'field': 'idle_hours', 'transform': color_mapper},
+                  source=datapoints_source,legend="idle_hours",color=mapper,
                   line_alpha=0)
 
 
-
+print('after plot') 
 
 color_bar = ColorBar(color_mapper=color_mapper, ticker= BasicTicker(),
                      location=(0,0))
