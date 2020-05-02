@@ -34,8 +34,12 @@ from bokeh.models.widgets import DatePicker
 from datetime import timedelta
 from bokeh.models import CheckboxGroup
 from bokeh.models import HoverTool,ResetTool
-from bokeh.models import LinearColorMapper, BasicTicker, ColorBar
-
+from bokeh.models import LinearColorMapper, BasicTicker, ColorBar,FixedTicker
+from bokeh.tile_providers import CARTODBPOSITRON, get_provider,OSM,ESRI_IMAGERY
+from bokeh.models import Panel, Tabs
+from bokeh.models.widgets import DatePicker
+from bokeh.models.renderers import  TileRenderer
+from bokeh.models import Paragraph
 map_repr='mercator'
 
 dfile='generated_data/vehicles_data.csv'
@@ -50,6 +54,23 @@ global Mindate
 global Maxdate
 Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
 Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
+
+
+hour_values=(Mindate.hour,Maxdate.hour)
+
+drs_start=DatePicker(title='Date',min_date=datetime.date(2017, 1, 1),max_date=datetime.date(2020, 6, 1),value=Mindate.date())
+drs_start_hour = Select(title='Hour of the day',value='0', options=[str(x) for x in list(range(0,24))])
+
+drs_end=DatePicker(title='Date',min_date=datetime.date(2017, 1, 1),max_date=datetime.date(2020, 6, 1),value=Mindate.date())
+drs_end_hour = Select(title='Hour of the day',value='1', options=[str(x) for x in list(range(0,24))])
+
+
+
+fdrs_start=DatePicker(title='Date',min_date=datetime.date(2017, 1, 1),max_date=datetime.date(2020, 6, 1),value=Mindate.date())
+fdrs_start_hour = Select(title='Hour of the day',value='0', options=[str(x) for x in list(range(0,24))])
+
+fdrs_end=DatePicker(title='Date',min_date=datetime.date(2017, 1, 1),max_date=datetime.date(2020, 6, 1),value=Mindate.date())
+fdrs_end_hour = Select(title='Hour of the day',value='1', options=[str(x) for x in list(range(0,24))])
 
 
 pdict={}
@@ -107,6 +128,9 @@ datapoints_source = ColumnDataSource()
 
 dictionary={}
 
+global fd
+fd=df.copy()
+        
 for col_name in display_columns:
 # if col_name not in [X,Y]:
   dictionary[col_name]=df[col_name]
@@ -125,8 +149,10 @@ run=0
 
 #def my_slider_handler(attr,old,new):
 def my_slider_handler(): 
-
-    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Update in Progress....</b><br></h4>'
+    #try_text.text="Updating"
+    
+    print('start')
+    pre.text='<h4><br><b style="color:slategray">Update in Progress....</b><br></h4>'
     completed.text=''
     #range_slider1=idle_range_slider
     
@@ -212,7 +238,7 @@ def my_slider_handler():
         print('drs_end_hour',drs_end_hour.value)
     
     """
-    
+    """
     d_start_date=Mindate+timedelta(hours=date_widget.value[0])
     d_end_date=Mindate+timedelta(hours=date_widget.value[1])
     
@@ -227,6 +253,25 @@ def my_slider_handler():
     
     print('Mindate',Mindate)
     print('radio buttomn active',radio_button_group.active)
+    """
+    #wid=drs_start.value
+    wid=datetime.datetime.strptime(drs_start.value[0:10], '%Y-%m-%d').date()
+    d_start_date=datetime.datetime(wid.year,wid.month,wid.day,int(drs_start_hour.value))
+    print('d_start_date',d_start_date)
+    
+    wid2=datetime.datetime.strptime(drs_end.value[0:10], '%Y-%m-%d').date()
+    d_end_date=datetime.datetime(wid2.year,wid2.month,wid2.day,int(drs_end_hour.value))
+    print('d_end_date',d_end_date)
+
+
+    fid=datetime.datetime.strptime(fdrs_start.value[0:10], '%Y-%m-%d').date()
+    start_date=datetime.datetime(fid.year,fid.month,fid.day,int(fdrs_start_hour.value))
+    print('start_date',start_date)
+    
+    fid2=datetime.datetime.strptime(fdrs_end.value[0:10], '%Y-%m-%d').date()
+    end_date=datetime.datetime(fid2.year,fid2.month,fid2.day,int(fdrs_end_hour.value))
+    print('end_date',end_date)
+    
     #df=df.sample(int(5*len(df)/100))
     #svalue=sdate_input.value
     #print(pd.datetime.strptime(svalue, '%Y-%m-%d %H:%M:%S'))
@@ -302,40 +347,64 @@ def my_slider_handler():
         """
         
         if map_type.active==0:
-            pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
-            palet=decided_palet.copy()
-            color_mapper = LinearColorMapper(palette=palet)
+            pre.text='<h4><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
+            palet=decided_palet
+            print('Uti palette',palet)
+            #color_mapper = LinearColorMapper(palette=palet)
+            color_mapper.palette=palet
+            color_mapper.high=max(df['idle_hours'])
+            color_mapper.low=min(df['idle_hours']) 
+            color_bar.color_mapper=color_mapper
             circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
         elif map_type.active==1:
-            pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Aging Cars</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
+            pre.text='<h4><br><b style="color:slategray">Aging Cars</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>'
             #print(map_figure.title.text)
-            palet=decided_palet.copy()
-            palet.reverse()
-            color_mapper = LinearColorMapper(palette=palet)
+            palet=decided_palet
+            palet=palet[::-1]
+            print('aging palette',palet)
+            #color_mapper = LinearColorMapper(palette=palet)
+            color_mapper.palette=palet
+            color_mapper.high=max(df['idle_hours'])
+            color_mapper.low=min(df['idle_hours']) 
+            color_bar.color_mapper=color_mapper
             circle_plot.glyph.fill_color={'field': 'idle_hours', 'transform': color_mapper}
-    except:
-        display_columns=df.columns
+
+
+    except Exception as e:
+        #pass
+        print(e)
+        
+        
+        fdd=fd.copy()
+        fdd=fdd.head(1)
+        display_columns=fdd.columns
         for col_name in display_columns:
         # if col_name not in [X,Y]:
           dictionary[col_name]=[]
         
         datapoints_source.data = dictionary 
-        pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Error! Try expanding date slider</b><br></h4>'
+        
+        
+        pre.text='<h4><br><b style="color:slategray">Error! Try expanding date slider</b><br></h4>'
+        
+        
+        
         #print(dictionary)
     #pre.text= """Filtered Idle spots:"""+str(len(df))  
 
-
-         
-    color_mapper.high=max(df['idle_hours'])
-    color_mapper.low=min(df['idle_hours']) 
-    color_bar.color_mapper=color_mapper
+    point_selector.active=[0,1,2,3,4]
+    #t.text="start"    
+   
     
     pdict['active']= radio_button_group.active   
     completed.text='<b>Update Completed!</b>'
 
 
     
-
+def update_click():
+    pre.text='<h4><br><b style="color:slategray">Update in Progress....</b><br></h4>'
+    curdoc().add_next_tick_callback(my_slider_handler)
+    
 
 sdate_input = TextInput(value="2020-01-03 00:00:00", title="Start Date: (YYYY-MM-DD HH:MM:SS)")
 #sdate_input.on_change("value", my_slider_handler)
@@ -402,7 +471,7 @@ size_range_slider.on_change('value', alpha_size)
 
 
 bt = Button(label='Update Plot',default_size=300,css_classes=['custom_button_1'])
-bt.on_click(my_slider_handler)
+bt.on_click(update_click)
 
 
 hovertool_widget = RadioButtonGroup(
@@ -418,7 +487,7 @@ radio_button_group = RadioButtonGroup(
 
 
 
-date_text = Div(text='<b style="color:black">'+str(Mindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(Maxdate)+'<br></b>',width=500, height=40)
+date_text = Div(text='<b style="color:black">'+str(Mindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(Mindate+timedelta(hours=24))+'<br></b>',width=500, height=40)
 
 
 
@@ -447,30 +516,59 @@ fine_date_widget.on_change('value', date_function)
   
 
 def point_selector_f(attr, old, new):
-    print(max(fd['idle_hours']))
-    max_idle=max(fd['idle_hours'])
-    idle_interval=max_idle/5
-    print(idle_interval)
-    if 0 in point_selector.active:
-        fd1=fd[fd['idle_hours']<idle_interval]
-    else:
-        fd1=pd.DataFrame(data=[],columns=[])
-    if 1 in point_selector.active:
-        fd2=fd[(fd['idle_hours']>=idle_interval) & (fd['idle_hours']<2*idle_interval)]
-    else:
-        fd2=pd.DataFrame(data=[],columns=[])
-    if 2 in point_selector.active:
-        fd3=fd[(fd['idle_hours']>=2*idle_interval) & (fd['idle_hours']<3*idle_interval)]
-    else:
-        fd3=pd.DataFrame(data=[],columns=[])
-    if 3 in point_selector.active:
-        fd4=fd[(fd['idle_hours']>=3*idle_interval) & (fd['idle_hours']<4*idle_interval)]
-    else:
-        fd4=pd.DataFrame(data=[],columns=[])
-    if 4 in point_selector.active:
-        fd5=fd[(fd['idle_hours']>=4*idle_interval)]
-    else:
-        fd5=pd.DataFrame(data=[],columns=[])
+    
+    if map_type.active==0:
+        print(max(fd['idle_hours']))
+        max_idle=max(fd['idle_hours'])
+        min_idle=min(fd['idle_hours'])
+        idle_interval=(max_idle-min_idle)/5
+        print(idle_interval)
+        if 0 in point_selector.active:
+            fd1=fd[fd['idle_hours']<idle_interval]
+        else:
+            fd1=pd.DataFrame(data=[],columns=[])
+        if 1 in point_selector.active:
+            fd2=fd[(fd['idle_hours']>=idle_interval) & (fd['idle_hours']<2*idle_interval)]
+        else:
+            fd2=pd.DataFrame(data=[],columns=[])
+        if 2 in point_selector.active:
+            fd3=fd[(fd['idle_hours']>=2*idle_interval) & (fd['idle_hours']<3*idle_interval)]
+        else:
+            fd3=pd.DataFrame(data=[],columns=[])
+        if 3 in point_selector.active:
+            fd4=fd[(fd['idle_hours']>=3*idle_interval) & (fd['idle_hours']<4*idle_interval)]
+        else:
+            fd4=pd.DataFrame(data=[],columns=[])
+        if 4 in point_selector.active:
+            fd5=fd[(fd['idle_hours']>=4*idle_interval)]
+        else:
+            fd5=pd.DataFrame(data=[],columns=[])
+    else:   
+        #print(max(fd['idle_hours']))
+        max_idle=max(fd['idle_hours'])
+        min_idle=min(fd['idle_hours'])
+        idle_interval=(max_idle-min_idle)/5
+        print(idle_interval)
+        if 0 in point_selector.active:
+            fd1=fd[fd['idle_hours']>=4*idle_interval]
+        else:
+            fd1=pd.DataFrame(data=[],columns=[])
+        if 1 in point_selector.active:
+            fd2=fd[(fd['idle_hours']>=3*idle_interval) & (fd['idle_hours']<4*idle_interval)]
+        else:
+            fd2=pd.DataFrame(data=[],columns=[])
+        if 2 in point_selector.active:
+            fd3=fd[(fd['idle_hours']>=2*idle_interval) & (fd['idle_hours']<3*idle_interval)]
+        else:
+            fd3=pd.DataFrame(data=[],columns=[])
+        if 3 in point_selector.active:
+            fd4=fd[(fd['idle_hours']>=idle_interval) & (fd['idle_hours']<2*idle_interval)]
+        else:
+            fd4=pd.DataFrame(data=[],columns=[])
+        if 4 in point_selector.active:
+            fd5=fd[(fd['idle_hours']<idle_interval)]
+        else:
+            fd5=pd.DataFrame(data=[],columns=[])
     
     """    
     if 5 in point_selector.active:
@@ -484,7 +582,7 @@ def point_selector_f(attr, old, new):
        if len(x)!=0:
            df_main_list.append(x)
     
-    try:       
+    try:  
         FD=pd.concat(df_main_list, ignore_index=True)       
     
 
@@ -493,7 +591,13 @@ def point_selector_f(attr, old, new):
         # if col_name not in [X,Y]:
           dictionary[col_name]=FD[col_name]
         
-        datapoints_source.data = dictionary  
+        datapoints_source.data = dictionary
+        
+        if map_type.active==0:
+            pre.text='<h4><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(FD))+'</h4>'
+        elif map_type.active==1:
+            pre.text='<h4><br><b style="color:slategray">Aging Cars</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(FD))+'</h4>'
+
     except:
         display_columns=fd.columns
         for col_name in display_columns:
@@ -501,8 +605,9 @@ def point_selector_f(attr, old, new):
           dictionary[col_name]=[]
         
         datapoints_source.data = dictionary 
-       
-
+        pre.text='<h4><br><b style="color:slategray">Error! Try expanding date slider</b><br></h4>'
+        
+        
 
 point_selector = CheckboxGroup(
         labels=["", "","","",""], active=[0,1,2,3,4])
@@ -510,9 +615,8 @@ point_selector = CheckboxGroup(
 point_selector.on_change('active', point_selector_f)
 
 
-def drs_function(attr, old, new):
-    
-    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Adjusting presets to reduce load....</b><br></h4>'
+def drs_function():
+    #pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Adjusting presets to reduce load....</b><br></h4>'
     if radio_button_group.active==0:
         df=pd.read_csv('generated_data/darwin_rental_datagenerated.csv')
     elif radio_button_group.active==1:
@@ -527,39 +631,51 @@ def drs_function(attr, old, new):
     #df=pd.read_csv(dfile)
     df=df[df['within_radius']==1]
     
-    global Mindate
-    Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')
+    Mindate=datetime.datetime.strptime(min(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
     
 
-    Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:13], '%Y-%m-%d %H')+timedelta(hours=1)
-    
-    
-    NMindate=Mindate+timedelta(hours=0)
-    NMaxdate=Mindate+timedelta(hours=24)
-    
-    date_widget.value=[0,24]
-    
-    fine_date_widget.value=[0,24]
-    
-    
+    Maxdate=datetime.datetime.strptime(max(df['rental_ended_at_x'])[0:19], '%Y-%m-%d %H:%M:%S')
     
     #print('min,max',Mindate,Maxdate)
-    """
-    year_values=(Mindate.year,Maxdate.year)
-    month_values=(Mindate.month,Maxdate.month)
-    day_values=(Mindate.day,Maxdate.day)
     hour_values=(Mindate.hour,Maxdate.hour)
-    """
+
+    
+    drs_start.min_date=Mindate.date()
+    drs_start.max_date=Maxdate.date()
+    drs_start_hour.value=str(hour_values[0])
+    drs_start.value=Mindate.date()
+    # print('drs_start_hour',drs_start_hour.value)
     
     
-    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">You can start adjusting the widgets now!</b><br></h4>'
+    drs_end.min_date=Mindate.date()
+    drs_end.max_date=Maxdate.date()
+    drs_end_hour.value=str((Mindate+ timedelta(hours=24)).hour)
+    drs_end.value=(Mindate+ timedelta(hours=24)).date()
+    #print('drs_end_hour',drs_end_hour.value)
+    
+    
+    fdrs_start.min_date=Mindate.date()
+    fdrs_start.max_date=Maxdate.date()
+    fdrs_start_hour.value=str(hour_values[0])
+    fdrs_start.value=Mindate.date()
+    #print('drs_start_hour',drs_start_hour.value)
+    
+    
+    fdrs_end.min_date=Mindate.date()
+    fdrs_end.max_date=Maxdate.date()
+    fdrs_end_hour.value=str((Mindate+ timedelta(hours=24)).hour)
+    fdrs_end.value=(Mindate+ timedelta(hours=24)).date()
+    #print('drs_end_hour',drs_end_hour.value)
+    
+    pre.text='<h4"><br><br><b style="color:slategray">You can start adjusting the widgets now!</b><br></h4>'
  
-    date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
     
-    fine_date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
+def update_radio_button_group(attr, old, new):
+    pre.text='<h4><br><b style="color:slategray">Adjusting presets to reduce load....</b><br></h4>'
+    curdoc().add_next_tick_callback(drs_function)
+
     
-    #map_figure.toolbar.active_tap=[ResetTool]
-radio_button_group.on_change('active', drs_function)
+radio_button_group.on_change('active',update_radio_button_group)
 
 
 map_type=RadioButtonGroup(
@@ -567,8 +683,10 @@ map_type=RadioButtonGroup(
 
 
 span_radio=RadioButtonGroup(
-        labels=["Preserve Span","Reset Span on Update"], active=0)
+        labels=["Lock Map Area","Auto Adjust Map Area"], active=0)
 
+
+weekday_checkbox=CheckboxGroup(labels=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'],active=[0,1,2,3,4,5,6])
 
 
 TOOLTIP=HoverTool()
@@ -616,7 +734,31 @@ map_figure = figure(
     y_axis_type=map_repr,
 #    title='High Utilisation Areas'
 )
-map_figure.add_tile(CARTODBPOSITRON)
+
+
+#map_figure.add_tile(CARTODBPOSITRON)
+
+tile_provider = get_provider(CARTODBPOSITRON)
+map_figure.add_tile(tile_provider)
+
+
+tiles = {'Light':get_provider(CARTODBPOSITRON),'Open Street':get_provider(OSM),'Satellite':get_provider(ESRI_IMAGERY)}
+#select menu
+
+#callback
+def change_tiles_callback(attr, old, new):
+    #removing the renderer corresponding to the tile layer
+    map_figure.renderers = [x for x in map_figure.renderers if not str(x).startswith('TileRenderer')]
+    #inserting the new tile renderer
+    tile_renderer = TileRenderer(tile_source=tiles[new])
+    map_figure.renderers.insert(0, tile_renderer)
+ 
+
+tile_prov_select = Select(title="Tile Provider", value="Light", options=['Light','Open Street','Satellite'])
+
+    
+tile_prov_select.on_change('value',change_tiles_callback) 
+
 
 #show(map_figure)
   
@@ -624,7 +766,7 @@ map_figure.add_tile(CARTODBPOSITRON)
 from bokeh.palettes import Oranges,OrRd,RdYlGn,Reds
 
 decided_palet=Reds[5]
-palet=decided_palet.copy()
+palet=decided_palet
 #palet.reverse()
 
 color_mapper = LinearColorMapper(palette=palet)
@@ -666,7 +808,8 @@ circle_plot=map_figure.circle(x='mrc_end_long_x', y='mrc_end_lat_x',
 
 
 
-
+#baseline=float((color_mapper.high-color_mapper.low)/5)
+#tick_list=[baseline,2*baseline,3*baseline,4*baseline]
 color_bar = ColorBar(color_mapper=color_mapper, ticker= BasicTicker(),
                      location=(0,0))
 
@@ -684,8 +827,7 @@ output_file("div.html")
 
 
 
-pre = Div(text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>',
-width=500, height=50)
+pre = Div(text='<h4><br><b style="color:slategray">High Utilization Areas</b><br>'+'<b style="color:slategray">Filtered Idle spots: </b>'+str(len(df))+'</h4>')
 
 completed = Div(text='<h4><b style="color:slategray">Update Completed!<br></b><h4>',
 width=500, height=10)
@@ -701,9 +843,9 @@ point_selector_text = Div(text=pstring,
 width=500, height=20)
 
 
+try_text = Paragraph(text="""start""")
 
-
-carsharing_text = Div(text='<h2 style="color:darkslategray;font-family: "Lucida Console", Courier, monospace;">Car Sharing Utilization Tracking Tool</h2>',
+carsharing_text = Div(text='<h2 style="border-bottom: 2px solid #778899;width: 1600px;color:darkslategray;font-family: "Lucida Console", Courier, monospace;">Car Sharing Utilization Tracking Tool<br><br></h2>',
 width=500, height=40)
 """
 dre_p1=Panel(child=row(drs_start,width=150), title="Date Start Filter")
@@ -730,6 +872,22 @@ date_tabs=Tabs(tabs=[CDF,FDF])
 
 
 
+fdre_p1=Panel(child=row(fdrs_start,fdrs_start_hour,width=280), title="From")
+fdre_p1=Tabs(tabs=[fdre_p1])
+fdre_p2=Panel(child=row(fdrs_end,fdrs_end_hour,width=280), title="To")
+fdre_p2=Tabs(tabs=[fdre_p2])
+fine_df=Panel(child=row(column(row(fdre_p1,width=350)),column(row(fdre_p2,width=350))),title="Fine Date Range Filter")
+#fine_df=Tabs(tabs=[fine_df])
+
+dre_p1=Panel(child=row(drs_start,drs_start_hour,width=280), title="From")
+dre_p1=Tabs(tabs=[dre_p1])
+dre_p2=Panel(child=row(drs_end,drs_end_hour,width=280), title="To")
+dre_p2=Tabs(tabs=[dre_p2])
+cum_df=Panel(child=row(column(row(dre_p1,width=350)),column(row(dre_p2,width=350))),title="Cumulative Date Range Filter")
+cum_df=Tabs(tabs=[cum_df,fine_df])
+
+
+
 widgets=Panel(child=column(
                 widgetbox(height=10),
                 widgetbox(radio_button_group,height=50),  
@@ -741,6 +899,7 @@ widgets=Panel(child=column(
                 widgetbox(map_type,height=50),
                 widgetbox(height=10),
                 date_tabs,
+                cum_df,
                 widgetbox(height=10),
                 widgetbox(span_radio),
                 widgetbox(height=10),
@@ -748,13 +907,13 @@ widgets=Panel(child=column(
                 widgetbox(height=10),
                 widgetbox(hovertool_widget),
                 widgetbox(height=10),
-                row(widgetbox(point_selector_text,width=15),widgetbox(point_selector)),
-
-                width=400)  , title="Widgets")
+                width=400)  , title="Base Widgets")
 
 
-plot_options=Panel(child=column(widgetbox(alpha_range_slider),
-                widgetbox(size_range_slider)), title="Plot Options")
+plot_options=Panel(child=column(widgetbox(tile_prov_select),
+                widgetbox(alpha_range_slider),
+                widgetbox(size_range_slider),
+                row(widgetbox(point_selector_text,width=15),widgetbox(point_selector)),), title="Visibility Widgets")
 
 w_tabs=Tabs(tabs=[widgets,plot_options])
 layout = column(carsharing_text,row(column(row(pre,height=100),map_figure,

@@ -27,6 +27,7 @@ from bokeh.models import TextInput,LinearColorMapper
 from collections import Counter
 from bokeh.util.hex import hexbin
 from bokeh.transform import linear_cmap
+from bokeh.models import RangeSlider
 
 from datetime import date
 
@@ -38,12 +39,16 @@ import time
 from bokeh.models import GeoJSONDataSource
 
 from bokeh.models import Toggle
+from bokeh.models import Div
+from datetime import timedelta
+from bokeh.models import Select
 
 
 map_repr='mercator'
 
-infile='generated_data/rentals_wave3.csv'
-
+#infile='generated_data/rentals_wave3.csv'
+#infile='daytona_rental_data.csv'
+infile='widget4_data/darwin_rental_data.csv'
 
 #PRESETS
 
@@ -54,8 +59,8 @@ RESOLUTION=7
 C_T=1
 
 
-svalue="2020-01-03 00:00:00"
-evalue="2020-01-03 01:00:00"
+svalue=str(datetime.datetime(2020, 1, 3,0))
+evalue=str(datetime.datetime(2020, 1, 3,1))
 
 
 
@@ -93,6 +98,9 @@ df_meta[["edge_length_km","perimeter_km","area_sqkm", "edge_length_m", "perimete
 
 
 df=pd.read_csv(infile)
+#df2=pd.read_csv(infile)
+
+
 
 
 
@@ -102,7 +110,12 @@ df=pd.read_csv(infile)
 
 #df=df[(df['rental_started_at']>svalue) & (df['rental_started_at']<evalue)]
 
-df=df[(df['rental_started_at']>str(datetime.datetime(2020, 1, 3,1))) & (df['rental_started_at']<str(datetime.datetime(2020, 1, 3,2)))]
+
+df=df[(df['rental_started_at']>svalue) & (df['rental_started_at']<evalue)]
+
+
+
+
 #df=df[(df['rental_ended_at_x']<=svalue) & (df['rental_started_at_y']>=evalue)]
 
 
@@ -121,6 +134,14 @@ def convert_to_mercator(lngs, lats):
     return xs, ys
 
 
+
+cl=['start_lat', 'start_long', 'end_lat','end_long']
+
+
+for lcol in list(range(0,len(cl),2)):    
+    df['mrc_'+cl[lcol+1]],df['mrc_'+cl[lcol]]=convert_to_mercator(df[cl[lcol+1]], df[cl[lcol]])
+    
+    
 latlong=['mrc_start_lat','mrc_start_long']
 
 latlong=['start_lat','start_long']
@@ -131,11 +152,12 @@ def counts_by_hexagon(df, resolution):
 
     #df = df[["latitude","longitude"]]
     df=df[latlong]
-    
+    print('1st')
     #df["hex_id"] = df.apply(lambda row: h3.geo_to_h3(row["latitude"], row["longitude"], resolution), axis = 1)
     df["hex_id"] = df.apply(lambda row: h3.geo_to_h3(row[latlong[0]], row[latlong[1]], resolution), axis = 1)
     
     df_aggreg = df.groupby(by = "hex_id").size().reset_index()
+    print(len(df_aggreg))
     df_aggreg.columns = ["hex_id", "value"]
     
 
@@ -245,7 +267,13 @@ def my_slider_handler():
     else:
         start_date = pd.Timestamp(range_slider1.value[0])
         end_date = pd.Timestamp(range_slider1.value[1])
-        
+    
+
+    start_date=Mindate+timedelta(hours=date_widget.value[0])
+    end_date=Mindate+timedelta(hours=date_widget.value[1])
+    
+    
+    
     print(start_date,end_date)
     
     ms=max(df['rental_started_at'])
@@ -305,12 +333,36 @@ count_threshold = TextInput(value="1", title="Count Threshold Value")
 
 resolution_slider=Slider(start=1, end=15, value=7, step=1, title="H3 Resolutions")
 
-sdate_range_slider = DateRangeSlider(title="Date Range: ", start=datetime.datetime(2020, 1, 1,1), end=datetime.datetime(2020, 3, 20,1), value=(datetime.datetime(2020, 1, 3,1), datetime.datetime(2020, 1, 3,2)),format="%x,%X")
+sdate_range_slider = DateRangeSlider(title="Date Range: ", start=datetime.datetime(2019, 8, 15,0), end=datetime.datetime(2020, 4, 28,1), value=(datetime.datetime(2020, 1, 3,1), datetime.datetime(2020, 1, 3,2)),format="%x,%X")
 
 #sdate_range_slider = DateRangeSlider(title="Date Range: ", start=datetime.datetime(2017, 1, 1,1), end=datetime.datetime(2017, 2, 7,2), value=(datetime.datetime(2017, 9, 7,1), datetime.datetime(2017, 9, 7,2)),format="%Y-%m-%d %H")
 #sdate_range_slider = DateRangeSlider(title="Date Range: ", start=datetime.datetime(2017, 1, 1,1), end=datetime.datetime(2017, 2, 7,2), value=(datetime.datetime(2017, 9, 7,1), datetime.datetime(2017, 9, 7,2)),step=1)
 #sdate_range_slider.on_change("value", my_slider_handler)
 #sdate_range_slider = DateSlider(title="Date Range: ", start=datetime.datetime(2017, 1, 1,1), end=datetime.datetime(2019, 9, 7,2), value=(datetime.datetime(2017, 9, 7,1), datetime.datetime(2017, 9, 7,2)), step=1)
+
+sMindate=datetime.datetime(2020, 3,1,0)
+
+Mindate=datetime.datetime(2019,8,15,0)
+
+date_text = Div(text='<b style="color:black">'+str(sMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(sMindate+timedelta(hours=1))+'<br></b>',width=500, height=40)
+
+def date_function(attr, old, new):
+    NMindate=Mindate+timedelta(hours=date_widget.value[0])
+    NMaxdate=Mindate+timedelta(hours=date_widget.value[1])
+    
+    #fNMindate=Mindate+timedelta(hours=fine_date_widget.value[0])
+    #fNMaxdate=Mindate+timedelta(hours=fine_date_widget.value[1])
+    
+    date_text.text='<b style="color:black">'+str(NMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(NMaxdate)+'<br></b>'
+    
+    #fine_date_text.text='<b style="color:black">'+str(fNMindate)+'&nbsp;&nbsp;&nbsp;to&nbsp;&nbsp;&nbsp;'+str(fNMaxdate)+'<br></b>'
+
+date_widget = RangeSlider(start=0, end=5760, value=(1,24), step=1,show_value=False,tooltips=False)
+
+date_widget.on_change('value', date_function)
+
+
+
 
 bt = Button(label='Update Plot')
 bt.on_click(my_slider_handler)
@@ -330,6 +382,12 @@ toggle_small.on_change("active",  toggle_small_handler)
 
 toggle_hexes = Toggle(label="Toggle Hexes", button_type="success")
 toggle_hexes.on_change("active",  toggle_hexes_handler)
+
+
+CID=list(set(df['customer_id'].astype('str')))
+print('CID',len(CID))
+select_cid = Select(title="Select Customer IDs:", value="foo", options=CID)
+
 
 
 from bokeh.tile_providers import CARTODBPOSITRON 
@@ -434,8 +492,8 @@ p.circle(x='mrc_start_long', y='mrc_start_lat',
 
      
 layout = column(row(
-            column(widgetbox(sdate_input),
-                widgetbox(edate_input),
+            column(
+                widgetbox(select_cid),
                 widgetbox(count_threshold),   
                 widgetbox(resolution_slider),
                 widgetbox(toggle_small),
@@ -449,7 +507,8 @@ layout = column(row(
                 column(p,
                 width=400),    
             
-        ),row(widgetbox(sdate_range_slider,width=1700),width=1500))
+        ),row(widgetbox(date_text)),
+                row(widgetbox(date_widget,width=1400),width=1500))
 
 
 curdoc().add_root(layout)

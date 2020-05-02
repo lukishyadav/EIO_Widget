@@ -49,3 +49,17 @@ select * from daytona_rental_data where rental_booked_at>
 Obtaining first 6 months trial query: 
     
 select (from_iso8601_date(q.rs) + interval '6' month),q.rs from (select substr(rental_started_at,1,19) as rs, from daytona_rental_data) q
+
+
+
+WIDGET4 QUERIES!
+
+select end_lat,end_long,start_lat,start_long,rental_booked_at,rental_started_at,rental_ended_at,vehicle_id,customer_id,"object_data-fare"	
+,"object_data-total_to_charge"
+"object_data-credit_amount_used" from darwin_rental_data
+where "object_data-is_exempted"=False 
+and  rental_started_at>'2019-08-12 00:00:01' 
+-- and rental_started_at<'2020-01-10 00:00:01'
+
+
+
