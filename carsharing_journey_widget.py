@@ -19,7 +19,7 @@ import seaborn as sns
 from pyproj import Proj
 from bokeh.plotting import figure, show, output_file, ColumnDataSource
 from bokeh.transform import factor_cmap
-from bokeh.tile_providers import CARTODBPOSITRON,OSM,ESRI_IMAGERY
+#from bokeh.tile_providers import CARTODBPOSITRON,OSM,ESRI_IMAGERY
 import numpy as np
 from sklearn.cluster import DBSCAN 
 from bokeh.models.widgets import Button, RadioButtonGroup, Select, Slider,TextInput,TextAreaInput
@@ -27,7 +27,7 @@ from bokeh.models import TextInput,LinearColorMapper
 from collections import Counter
 from bokeh.util.hex import hexbin
 from bokeh.transform import linear_cmap
-from bokeh.models import RangeSlider
+from bokeh.models import RangeSlider,CustomJS
 from bokeh.models.widgets import DatePicker
 from datetime import date
 
@@ -49,12 +49,17 @@ from math import radians, cos, sin, asin, sqrt
 from bokeh.models import CheckboxGroup
 from bokeh.models import Panel, Tabs
 from bokeh.models import LinearColorMapper, BasicTicker, ColorBar,FixedTicker
+from bokeh.models import ColumnDataSource, HoverTool, TapTool, PolySelectTool,LassoSelectTool,BoxSelectTool
 map_repr='mercator'
+from bokeh.events import Tap,SelectionGeometry,Pan,PanStart,PanEnd
 
 #infile='generated_data/rentals_wave3.csv'
 #infile='daytona_rental_data.csv'
 infile='journey_data/darwin_rental_data.csv'
 
+
+import warnings
+warnings.filterwarnings("ignore")
 #PRESETS
 
 max_res = 15
@@ -66,7 +71,10 @@ C_T=1
 global pdict
 pdict={}
 pdict['active']= 0
-
+global gdict
+gdict={}
+global cdict
+cdict={}
 svalue=str(datetime.datetime(2019,8,15,0))
 evalue=str(datetime.datetime(2019,8,15,6))
 
@@ -179,21 +187,36 @@ latlong=['mrc_start_lat','mrc_start_long']
 
 latlong=['start_lat','start_long']
 
-def counts_by_hexagon(df, resolution,latlong):    
+def counts_by_hexagon(df, resolution,latlong,filter_variable=None):    
     '''Use h3.geo_to_h3 to index each data point into the spatial index of the specified resolution.
       Use h3.h3_to_geo_boundary to obtain the geometries of these hexagons'''
 
     #df = df[["latitude","longitude"]]
-    df=df[latlong]
+    #df=df[latlong]
     print('1st')
     #df["hex_id"] = df.apply(lambda row: h3.geo_to_h3(row["latitude"], row["longitude"], resolution), axis = 1)
     df["hex_id"] = df.apply(lambda row: h3.geo_to_h3(row[latlong[0]], row[latlong[1]], resolution), axis = 1)
+    df.hex_no = pd.Categorical(df.hex_id)
+    df['hex_no']=df.hex_no.codes
+    df['hex_no']=df['hex_no'].astype(str)
+    if filter_variable and hex_filter_select.value!='All Hexes':
+            if  hex_filter_select.value=='Filter by Number':
+                hex_filter_list=hex_filter_no.value.split(',')
+                df=df[df['hex_no'].isin(hex_filter_list)]
+          
+    df_aggreg = df.groupby(by = ["hex_id","hex_no"]).size().reset_index()
     
-    df_aggreg = df.groupby(by = "hex_id").size().reset_index()
     print(len(df_aggreg))
-    df_aggreg.columns = ["hex_id", "value"]
+    df_aggreg.columns = ["hex_id","hex_no", "value"]
     
-
+    if filter_variable and hex_filter_select.value!='All Hexes':
+        if  hex_filter_select.value=='Filter by Threshold':
+                hex_filter_threshold=int(hex_filter_no.value)
+                df_aggreg=df_aggreg[df_aggreg['value']>hex_filter_threshold] 
+                hex_th_filtered_list=list(set(df_aggreg['hex_no']))
+                df=df[df['hex_no'].isin(hex_th_filtered_list)]
+            
+            
     df_aggreg["geometry"] =  df_aggreg.hex_id.apply(lambda x: 
                                                            {    "type" : "Polygon",
                                                                  "coordinates": 
@@ -210,7 +233,7 @@ def counts_by_hexagon(df, resolution,latlong):
                                                         )
     """    
         
-    return df_aggreg
+    return df,df_aggreg
 
 
 
@@ -229,7 +252,7 @@ def hexagons_dataframe_to_geojson(df_hex, file_output = None):
         v[:,0],v[:,1]=convert_to_mercator(v[:,0], v[:,1])
         row["geometry"]['coordinates'][0]=v.tolist()
             
-        feature = Feature(geometry = row["geometry"] , id=row["hex_id"], properties = {"value" : row["value"]})
+        feature = Feature(geometry = row["geometry"] , id=row["hex_id"], properties = {"Hex_Count" : row["value"],"Hex_No":row["hex_no"]})
         list_features.append(feature)
         
     feat_collection = FeatureCollection(list_features)
@@ -248,7 +271,7 @@ def hexagons_dataframe_to_geojson(df_hex, file_output = None):
 
 
 start=time.time()
-df_aggreg= counts_by_hexagon(df,RESOLUTION,latlong)
+df,df_aggreg= counts_by_hexagon(df,RESOLUTION,latlong)
 print(time.time()-start)
 
 
@@ -258,6 +281,7 @@ geojson_data = hexagons_dataframe_to_geojson(df_hex = df_aggreg)
 
 geo_source = GeoJSONDataSource(geojson=geojson_data)
 
+hex_dict=json.loads(geojson_data)
 
 
 """
@@ -286,6 +310,8 @@ SLIDE HANDLER
 """
 
 def my_slider_handler():
+    global glyph_variable,df_aggreg,hex_dict
+    glyph_variable=0
     #carsharing_text.text='start'
     toggle_checkbox.active=[0,1,2,3]
     import time
@@ -362,6 +388,7 @@ def my_slider_handler():
         df=df[(df['rental_started_at']>str(start_date)) & (df['rental_started_at']<str(end_date))]
         
         
+        #print(df.columns)
         CID=list(set(df['customer_id'].astype('str')))
         select_cid.options=CID
         
@@ -391,12 +418,14 @@ def my_slider_handler():
          
             
         start=time.time()
-        df_aggreg= counts_by_hexagon(df,RESOLUTION,latlong)
+        df,df_aggreg= counts_by_hexagon(df,RESOLUTION,latlong,1)
         print(time.time()-start)
         
         
         geojson_data = hexagons_dataframe_to_geojson(df_hex = df_aggreg)
         
+        #global hex_dict
+        hex_dict=json.loads(geojson_data)
         """
         if toggle_hexes.active==True:
             print("Hex remove Condition")
@@ -455,7 +484,7 @@ def my_slider_handler():
             datapoints_source.data = dictionary 
         """    
         
-       
+        
         if 1 in toggle_checkbox.active:
             dictionary={}
             for col_name in df.columns:
@@ -494,6 +523,7 @@ def my_slider_handler():
         
         global fd
         fd=df.copy()
+        df_aggreg=df_aggreg
         """    
         else:
                     source.data=dict(
@@ -540,6 +570,9 @@ def my_slider_handler():
         maxlng=max(df['mrc_end_long'])
         minlng=min(df['mrc_end_long'])
         
+        if maxlng==minlng or maxlat==minlat:
+            raise Exception("Sorry, no numbers below zero")
+            
         if (radio_button_group.active!=pdict['active'] or span_radio.active==1) and 0 not in cid_filter.active:  
             #p.toolbar.active_tap=None
             p.x_range.end=maxlng
@@ -553,7 +586,7 @@ def my_slider_handler():
         
         pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Count of trips: </b>'+str(len(df))+'<br>'+'<b style="color:slategray">Count of hexes: </b>'+str(len(df_aggreg))+'</h4>'
         
-        if 0 not in cid_filter.active:
+        if 0 not in cid_filter.active and hex_filter_select.value=='All Hexes':
             color_mapper.high=max(df_aggreg['value'])
             color_mapper.low=min(df_aggreg['value']) 
             color_bar.color_mapper=color_mapper
@@ -584,7 +617,7 @@ def my_slider_handler():
         
         
         
-        geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[] for x in range(1)]]},"properties":{"value":0}}]})
+        geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[] for x in range(1)]]},"properties":{'Hex_Count': 1, 'Hex_No': '27'}}]})
         
         
         source.data=dict(
@@ -669,33 +702,54 @@ def alpha_size(attr, old, new):
     end_circle_plot.glyph.size=size_range_slider.value
     
     end_circle_plot.glyph.fill_alpha=alpha_range_slider.value
+
+path_alpha_slider=Slider(start=0, end=1, value=0.4, step=.1, title="Path Transparency")
+
+path_width_slider = Slider(start=1, end=50, value=2, step=1, title="Path Width")
+
+def path_sliders(attr,old,new):
+    glyph.glyph.line_alpha=path_alpha_slider.value
     
+    glyph.glyph.line_width=path_width_slider.value
+        
 
 alpha_range_slider.on_change('value', alpha_size)
 
 size_range_slider.on_change('value', alpha_size)
 
+path_alpha_slider.on_change('value', path_sliders)
+
+path_width_slider.on_change('value', path_sliders)
+
 
 
 def toggle_checkbox_handler(attr,old,new):
+    print(gdict.keys())
+    if glyph_variable==1:
+            cdict=gdict
+            print('g game')
+    else:
+            cdict=pdict
+            
     if 0 not in toggle_checkbox.active and 1 not in toggle_checkbox.active and 2 not in toggle_checkbox.active and 3 not in toggle_checkbox.active:
         #span_radio.active=1
         #p.toolbar.active_tap=[]
         #pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Minimum of one selection is needed for checkbox.</b><br></h4>'
         toggle_checkbox.active=[0,1,2]
+        
     
 
     if 2 in toggle_checkbox.active:
-        geo_source.geojson=pdict['geo_source.geojson']
+        geo_source.geojson=cdict['geo_source.geojson']
         
     else:    
         #geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[pdict['mslat'],pdict['mslong']] for x in range(7)]]},"properties":{"value":0}}]})
         #geo_source.geojson=json.dumps({})
-        geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[] for x in range(1)]]},"properties":{"value":0}}]})
+        geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[] for x in range(1)]]},"properties":{'Hex_Count': 1, 'Hex_No': '27'}}]})
 
      
     if 0 in toggle_checkbox.active:
-        datapoints_source.data=pdict['datapoints_source.data']
+        datapoints_source.data=cdict['datapoints_source.data']
     else:    
         dictionary={}
         for col_name in df.columns:
@@ -704,7 +758,7 @@ def toggle_checkbox_handler(attr,old,new):
         datapoints_source.data = dictionary 
         
     if 1 in toggle_checkbox.active:
-        end_datapoints_source.data=pdict['end_datapoints_source.data']
+        end_datapoints_source.data=cdict['end_datapoints_source.data']
     else:    
         dictionary={}
         for col_name in df.columns:
@@ -715,7 +769,7 @@ def toggle_checkbox_handler(attr,old,new):
     
     
     if 3 in toggle_checkbox.active:
-        source.data=pdict['source.data']
+        source.data=cdict['source.data']
     else:
                 source.data=dict(
         x=[],
@@ -725,7 +779,10 @@ def toggle_checkbox_handler(attr,old,new):
         cx=[],
         cy=[],)
      
-
+    CustomJS(args=dict(p=p), code="""
+    p.reset.emit()
+    """)
+    
 
 toggle_checkbox=CheckboxGroup(
         labels=["Toggle Start Points","Toggle End Points", "Toggle Hexes", "Toggle Path"], active=[0,1,2,3])
@@ -743,6 +800,7 @@ cid_filter=CheckboxGroup(
 
 #cid_filter.on_change('active',cid_filter_handler)
 
+#print(df.columns)
 CID=list(set(df['customer_id'].astype('str')))
 print('CID',len(CID))
 select_cid = Select(title="Select Customer IDs:", value=CID[0], options=CID)
@@ -771,7 +829,9 @@ p = figure(
     x_axis_type=map_repr,
     y_axis_type=map_repr,
     #title='IDLE Vehicles Map',
-    match_aspect=True
+    match_aspect=True,
+    tools="pan,wheel_zoom,box_zoom,tap,box_select,reset,save"
+    #tools='tap'
 )
 
 """
@@ -830,7 +890,7 @@ TOOLTIP1.tooltips= """
 
 
 
-display_columns2=['value']
+display_columns2=['Hex_Count','Hex_No']
 from bokeh.models import HoverTool
 TOOLTIP2=HoverTool()
 TOOLTIP_list2=['<b style="color:MediumSeaGreen;">'+name_cols+':'+'</b><b>'+' @{'+name_cols+'}</b>' for name_cols in display_columns2]
@@ -863,7 +923,7 @@ color_mapper = LinearColorMapper(palette=RdYlGn[5])
 color_mapper.high=max(df_aggreg['value'])
 color_mapper.low=min(df_aggreg['value'])
 
-p.patches('xs', 'ys', fill_alpha=0.7, fill_color={'field': 'value', 'transform': color_mapper},
+p.patches('xs', 'ys', fill_alpha=0.7, fill_color={'field': 'Hex_Count', 'transform': color_mapper},
           line_color='white', line_width=0.5, source=geo_source)
 
 
@@ -891,7 +951,7 @@ datapoints_source.data = dictionary
 circle_plot=p.circle(x='mrc_start_long', y='mrc_start_lat', 
                   #size=cluster_point_size,
                   fill_alpha=0.2,
-                  source=datapoints_source,color="firebrick",line_alpha=0.4
+                  source=datapoints_source,color="firebrick",line_alpha=0
                   #line_color='black'
                   )
 
@@ -911,7 +971,7 @@ end_datapoints_source.data = dictionary2
 end_circle_plot=p.circle(x='mrc_end_long', y='mrc_end_lat', 
                   #size=cluster_point_size,
                   fill_alpha=0.2,
-                  source=end_datapoints_source,color="royalblue",line_alpha=0.4
+                  source=end_datapoints_source,color="royalblue",line_alpha=0
                   #line_color='black'
                   )
 
@@ -956,6 +1016,33 @@ pdict['source.data']=dict(
     )
 
 
+
+
+hex_filter_no = TextInput(value="", title="hex_filter_no")
+hex_filter_no.visible=False
+#hex_filter_threshold = TextInput(value="", title="hex_filter_threshold")
+
+
+hex_filter_select=Select(
+        options=["All Hexes","Filter by Number", "Filter by Threshold"], value='All Hexes',title='Hex Filters')
+
+
+def hex_filter_callback(attr,old,new):
+    if hex_filter_select.value=='All Hexes':
+       hex_filter_no.visible=False
+    elif  hex_filter_select.value=='Filter by Number':
+        hex_filter_no.visible=True
+        hex_filter_no.title="hex_filter by number"
+    else:
+        hex_filter_no.visible=True
+        hex_filter_no.title="hex_filter by threshold"
+    
+hex_filter_select.on_change('value',hex_filter_callback)
+
+
+
+
+
 #p.toolbar.active_inspect
 
 
@@ -986,7 +1073,11 @@ base_widgets=Panel(child=column(widgetbox(radio_button_group),widgetbox(height=1
 visibility_widgets=Panel(child=column(widgetbox(toggle_checkbox),
                 widgetbox(tile_prov_select),
                 widgetbox(alpha_range_slider),
-                widgetbox(size_range_slider),),title='Visibility widgets')
+                widgetbox(size_range_slider),
+                widgetbox(path_alpha_slider),
+                widgetbox(path_width_slider),
+                widgetbox(hex_filter_select),
+                widgetbox(hex_filter_no),widgetbox(bt)),title='Visibility widgets')
 
 
 customer_widgets=Panel(child=column(widgetbox(select_cid),
@@ -1000,6 +1091,171 @@ hovertool_widget = RadioButtonGroup(
 
 
 p.toolbar.active_inspect=[None]
+
+
+
+taptool = p.select(type=TapTool)
+
+#taptool=p.select(type= PolySelectTool)
+
+#taptool=p.select(type=LassoSelectTool)
+
+#taptool=p.select(type=BoxSelectTool)
+
+
+glyph_variable=0
+def callback(event):
+    global glyph_variable
+    glyph_variable=1
+    selected = geo_source.selected.indices
+    print(selected)
+    print([hex_dict['features'][i]['properties'] for i in selected])
+    print([hex_dict['features'][i]['id'] for i in selected])
+    hex_list=[hex_dict['features'][i]['id'] for i in selected]
+    
+    
+    new_geo=hex_dict.copy()
+    new_geo['features']=[hex_dict['features'][i] for i in selected]
+    new_geo=json.dumps(new_geo)
+    geo_source.geojson=new_geo
+    gdict['geo_source.geojson']=new_geo
+    
+    if 0 not in cid_filter.active:
+            #color_mapper.palette=Oranges[5]
+            color_mapper.high=max(df_aggreg['value'])
+            color_mapper.low=min(df_aggreg['value']) 
+            print('max,min',max(df_aggreg['value']),min(df_aggreg['value']))
+    #geo_source.geojson=pdict['geo_source.geojson']
+    
+    global dff
+    dff=fd.copy()
+    
+    dff=dff[dff['hex_id'].isin(hex_list)]
+    dictionary={}
+    for col_name in df.columns:
+    # if col_name not in [X,Y]:
+      dictionary[col_name]=dff[col_name]
+    datapoints_source.data = dictionary
+    gdict['datapoints_source.data']=dictionary
+
+
+
+    dictionary={}
+    for col_name in df.columns:
+    # if col_name not in [X,Y]:
+      dictionary[col_name]=dff[col_name]
+    end_datapoints_source.data = dictionary
+    gdict['end_datapoints_source.data']=dictionary
+    
+    
+
+    #dff['haversine_distance']=dff.apply(haversine,axis=1)
+    source.data=dict(
+    x=dff['mrc_start_long'],
+    y=dff['mrc_start_lat'],
+    x1=dff['mrc_end_long'],
+    y1=dff['mrc_end_lat'],
+    cx=(dff['mrc_start_long']+dff['mrc_end_long'])/2,
+    cy=dff['mrc_start_lat']+dff['haversine_distance']/8,)
+    gdict['source.data']=dict(
+    x=dff['mrc_start_long'],
+    y=dff['mrc_start_lat'],
+    x1=dff['mrc_end_long'],
+    y1=dff['mrc_end_lat'],
+    cx=(dff['mrc_start_long']+dff['mrc_end_long'])/2,
+    cy=dff['mrc_start_lat']+dff['haversine_distance']/8,)
+    
+    
+    #CustomJS(args=dict(p=p), code="""
+    #p.reset.emit()
+    #""")
+    
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Count of trips: </b>'+str(len(dff))+'<br>'+'<b style="color:slategray">Count of hexes: </b>'+str(len(selected))+'</h4>'
+p.on_event(Tap, callback)
+
+#p.on_event(SelectionGeometry,callback)
+
+#p.on_event(PanEnd,callback)
+
+
+
+
+def hex_filter_callback(attr,old,new):
+    
+    """
+    if hex_filter_select.value=='All Hexes':
+       hex_filter_no.visible=False
+    """  
+    new_geo=hex_dict.copy()
+    global dff
+    dff=fd.copy()
+    if  hex_filter_select.value=='Filter by Number':
+        print('C1')
+        hex_filter_list=hex_filter_no.value.split(',')
+        hex_info_list=[hex_dict['features'][i]['properties'] for i in range(len(hex_dict))]
+        
+        hex_filtered=[1 if hex_info_list[i]['Hex_No'] in hex_filter_list else 0 for i in range(len(hex_info_list))]
+        res_list = [i for i, value in enumerate(hex_filtered) if value == 1] 
+        new_geo['features']=[new_geo['features'][i] for i in res_list]
+        dff=dff[dff['hex_no'].isin(hex_filter_list)]
+    else:
+        print('C2')
+        hex_filter_threshold=int(hex_filter_no.value)
+        hex_info_list=[hex_dict['features'][i]['properties'] for i in range(len(hex_dict))]
+        hex_filtered=[hex_info_list[i] for i in range(len(hex_info_list)) if hex_info_list[i]['Hex_Count']>hex_filter_threshold]
+        hex_filtered2=[1 if hex_info_list[i]['Hex_Count']>hex_filter_threshold else 0  for i in range(len(hex_info_list))]
+        #hex_filtered.index(1)
+        res_list = [i for i, value in enumerate(hex_filtered2) if value == 1] 
+        new_geo['features']=[new_geo['features'][i] for i in res_list]
+        hex_no_filtered=[hex_filtered[i]['Hex_No'] for i in range(len(hex_filtered))]
+        dff=dff[dff['hex_no'].isin(hex_no_filtered)]
+    
+    
+    new_geo=json.dumps(new_geo)
+    geo_source.geojson=new_geo
+    #gdict['geo_source.geojson']=new_geo
+    
+
+    dictionary={}
+    for col_name in dff.columns:
+    # if col_name not in [X,Y]:
+      dictionary[col_name]=dff[col_name]
+    datapoints_source.data = dictionary
+    #gdict['datapoints_source.data']=dictionary
+
+
+
+    dictionary={}
+    for col_name in dff.columns:
+    # if col_name not in [X,Y]:
+      dictionary[col_name]=dff[col_name]
+    end_datapoints_source.data = dictionary
+    #gdict['end_datapoints_source.data']=dictionary
+    
+    
+
+    #dff['haversine_distance']=dff.apply(haversine,axis=1)
+    source.data=dict(
+    x=dff['mrc_start_long'],
+    y=dff['mrc_start_lat'],
+    x1=dff['mrc_end_long'],
+    y1=dff['mrc_end_lat'],
+    cx=(dff['mrc_start_long']+dff['mrc_end_long'])/2,
+    cy=dff['mrc_start_lat']+dff['haversine_distance']/8,)
+    
+    """
+    gdict['source.data']=dict(
+    x=dff['mrc_start_long'],
+    y=dff['mrc_start_lat'],
+    x1=dff['mrc_end_long'],
+    y1=dff['mrc_end_lat'],
+    cx=(dff['mrc_start_long']+dff['mrc_end_long'])/2,
+    cy=dff['mrc_start_lat']+dff['haversine_distance']/8,)
+    """
+    
+
+
+#hex_filter_no.on_change('value',hex_filter_callback)
 
 layout = column(row(carsharing_text,height=70),row(
             column(
@@ -1022,8 +1278,19 @@ layout = column(row(carsharing_text,height=70),row(
 curdoc().add_root(layout)
 curdoc().title = 'EOIs'
 
-import warnings
-warnings.filterwarnings("ignore")
+
 
 print(time.time()-mstart)
 
+
+
+
+
+
+
+
+
+
+        
+
+            
