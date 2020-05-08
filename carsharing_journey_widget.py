@@ -455,8 +455,7 @@ def my_slider_handler():
             datapoints_source.data = dictionary 
         """    
         
-        global fd
-        fd=df.copy()
+       
         if 1 in toggle_checkbox.active:
             dictionary={}
             for col_name in df.columns:
@@ -491,7 +490,10 @@ def my_slider_handler():
             y1=df['mrc_end_lat'],
             cx=(df['mrc_start_long']+df['mrc_end_long'])/2,
             cy=df['mrc_start_lat']+df['haversine_distance']/8,)
-            
+        
+        
+        global fd
+        fd=df.copy()
         """    
         else:
                     source.data=dict(
@@ -899,8 +901,7 @@ circle_plot=p.circle(x='mrc_start_long', y='mrc_start_lat',
 #df['x']=df['mrc_start_long']
 #df['y']=df['mrc_start_lat']
 dictionary2={}
-global fd
-fd=df.copy() 
+
 for col_name in df.columns:
 # if col_name not in [X,Y]:
   dictionary2[col_name]=df[col_name]
@@ -917,6 +918,9 @@ end_circle_plot=p.circle(x='mrc_end_long', y='mrc_end_lat',
 
 #show(p)
 df['haversine_distance']=df.apply(haversine,axis=1)
+
+global fd
+fd=df.copy() 
 
 source = ColumnDataSource(dict(
         x=df['mrc_start_long'],
