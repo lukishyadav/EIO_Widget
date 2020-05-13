@@ -15,13 +15,11 @@ from bokeh.layouts import column,layout,row,widgetbox
 import pandas as pd
 #import my_module
 import datetime
-import seaborn as sns
 from pyproj import Proj
 from bokeh.plotting import figure, show, output_file, ColumnDataSource
 from bokeh.transform import factor_cmap
 #from bokeh.tile_providers import CARTODBPOSITRON,OSM,ESRI_IMAGERY
 import numpy as np
-from sklearn.cluster import DBSCAN 
 from bokeh.models.widgets import Button, RadioButtonGroup, Select, Slider,TextInput,TextAreaInput
 from bokeh.models import TextInput,LinearColorMapper
 from collections import Counter
@@ -52,6 +50,14 @@ from bokeh.models import LinearColorMapper, BasicTicker, ColorBar,FixedTicker
 from bokeh.models import ColumnDataSource, HoverTool, TapTool, PolySelectTool,LassoSelectTool,BoxSelectTool
 map_repr='mercator'
 from bokeh.events import Tap,SelectionGeometry,Pan,PanStart,PanEnd
+
+
+from bokeh.io import curdoc
+from bokeh.models.widgets import FileInput
+from base64 import b64decode
+import pandas as pd
+import io
+
 
 #infile='generated_data/rentals_wave3.csv'
 #infile='daytona_rental_data.csv'
@@ -113,7 +119,7 @@ df_meta[["edge_length_km","perimeter_km","area_sqkm", "edge_length_m", "perimete
 
 
 
-df=pd.read_csv(infile)
+
 #df2=pd.read_csv(infile)
 
 
@@ -145,7 +151,7 @@ pdict['mslong']=mslong
 #df=df[(df['rental_started_at']>svalue) & (df['rental_started_at']<evalue)]
 
 
-df= df[(df['rental_started_at']>svalue) & (df['rental_started_at']<evalue)]
+
 
 
 
@@ -175,13 +181,7 @@ def haversine(x):
     r = 6371 # Radius of earth in kilometers. Use 3956 for miles
     return c * r*1000
 
-
-cl=['start_lat', 'start_long', 'end_lat','end_long']
-
-
-for lcol in list(range(0,len(cl),2)):    
-    df['mrc_'+cl[lcol+1]],df['mrc_'+cl[lcol]]=convert_to_mercator(df[cl[lcol+1]], df[cl[lcol]])
-    
+cl=['start_lat', 'start_long', 'end_lat','end_long']    
     
 latlong=['mrc_start_lat','mrc_start_long']
 
@@ -270,18 +270,6 @@ def hexagons_dataframe_to_geojson(df_hex, file_output = None):
 
 
 
-start=time.time()
-df,df_aggreg= counts_by_hexagon(df,RESOLUTION,latlong)
-print(time.time()-start)
-
-
-
-
-geojson_data = hexagons_dataframe_to_geojson(df_hex = df_aggreg)
-
-geo_source = GeoJSONDataSource(geojson=geojson_data)
-
-hex_dict=json.loads(geojson_data)
 
 
 """
@@ -325,16 +313,7 @@ def my_slider_handler():
 
 
 
-    if radio_button_group.active==0:
-        df=pd.read_csv('journey_data/darwin_rental_data.csv')
-    elif radio_button_group.active==1:
-        df=pd.read_csv('journey_data/darwin_e_rental_data.csv')
-    elif radio_button_group.active==2:
-        df=pd.read_csv('journey_data/darwin_s_rental_data.csv')
-    elif radio_button_group.active==3:
-        df=pd.read_csv('journey_data/daytona_rental_data.csv')
-    else:    
-        df=pd.read_csv('journey_data/eiffel_rental_data.csv')
+    df=input_file.copy()
     
     
     """
@@ -371,18 +350,18 @@ def my_slider_handler():
         
         wid=datetime.datetime.strptime(drs_start.value[0:10], '%Y-%m-%d').date()
         
-        print('wid',wid,type(wid))
+        #print('wid',wid,type(wid))
         start_date=datetime.datetime(wid.year,wid.month,wid.day,int(drs_start_hour.value))
-        print('start_date',start_date)
+        #print('start_date',start_date)
         
         wid2=datetime.datetime.strptime(drs_end.value[0:10], '%Y-%m-%d').date()
         end_date=datetime.datetime(wid2.year,wid2.month,wid2.day,int(drs_end_hour.value))
-        print('end_date',end_date)
+        #print('end_date',end_date)
 
 
         #pdict['ms']=max(df['rental_started_at'])
         
-        print(start_date,end_date)
+        #print(start_date,end_date)
         
        
         df=df[(df['rental_started_at']>str(start_date)) & (df['rental_started_at']<str(end_date))]
@@ -391,6 +370,8 @@ def my_slider_handler():
         #print(df.columns)
         CID=list(set(df['customer_id'].astype('str')))
         select_cid.options=CID
+        #print(len(df))
+        #print('CID',CID)
         
         if 0 in cid_filter.active:
             df=df[df['customer_id']==int(select_cid.value)]
@@ -402,6 +383,7 @@ def my_slider_handler():
 
 
         df['weekday']=df.apply(lambda x:datetime.datetime.strptime(x['rental_started_at'][0:10], '%Y-%m-%d').weekday(),axis=1)
+        print(df['weekday'])
         #df['weekday']=df['weekday'].astype(str)
         df=df[df['weekday'].isin(weekday_checkbox.active)]
         #datetime.datetime.today().
@@ -595,7 +577,7 @@ def my_slider_handler():
     #if l==-1:
         #pass
         print(e)
-        fdd=fd.copy()
+        fdd=input_file.copy()
         fdd=fdd.head(1) 
         dictionary={}
         for col_name in fdd.columns:
@@ -636,8 +618,36 @@ def update_click():
     curdoc().add_next_tick_callback(my_slider_handler)
 
 
-bt = Button(label='Update Plot',button_type="success")
-bt.on_click(update_click)    
+bt = Button(label='Update Plot',css_classes=['custom_button_1'],button_type="success")
+bt.on_click(update_click)   
+
+
+
+def file_upload(attr,old,new):
+    print("fit data upload succeeded")
+
+    decoded = b64decode(file_input.value)
+    f = io.BytesIO(decoded)
+    #print(type(new))
+    global input_file
+    input_file = pd.read_csv(f)
+    print(len(input_file))
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Upload completed!....</b><br></h4>'
+
+
+def file_upload_click(attr,old,new):
+    print(new)
+    pre.text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Upload in Progress....</b><br></h4>'
+    
+
+
+fu= Button(label='Upload File')
+#fu.on_click(file_upload_click)  
+from bokeh.events import ButtonClick
+ 
+file_input = FileInput(accept=".csv,.json,.txt,.pdf,.xls")
+file_input.on_change('filename',file_upload_click)
+file_input.on_change('value',file_upload)  
 """
 WIDGETS
 
@@ -801,9 +811,7 @@ cid_filter=CheckboxGroup(
 #cid_filter.on_change('active',cid_filter_handler)
 
 #print(df.columns)
-CID=list(set(df['customer_id'].astype('str')))
-print('CID',len(CID))
-select_cid = Select(title="Select Customer IDs:", value=CID[0], options=CID)
+select_cid = Select(title="Select Customer IDs:", value='', options=[])
 
 
 
@@ -813,7 +821,7 @@ radio_button_group = RadioButtonGroup(
 
 global pre 
 
-pre = Div(text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Count of trips: </b>'+str(len(df))+'<br>'+'<b style="color:slategray">Count of hexes: </b>'+str(len(df_aggreg))+'</h4>',
+pre = Div(text='<h4 style="border-top: 2px solid #778899;width: 1600px"><br><b style="color:slategray">Count of trips: </b>'+str('len(df)')+'<br>'+'<b style="color:slategray">Count of hexes: </b>'+str('len(df_aggreg)')+'</h4>',
 width=500, height=50)
 
 
@@ -826,8 +834,8 @@ map_repr='mercator'
 p = figure(
 #    x_range=(minlng,maxlng),
 #    y_range=(minlat, maxlat),
-    x_axis_type=map_repr,
-    y_axis_type=map_repr,
+#    x_axis_type=map_repr,
+#    y_axis_type=map_repr,
     #title='IDLE Vehicles Map',
     match_aspect=True,
     tools="pan,wheel_zoom,box_zoom,tap,box_select,reset,save"
@@ -875,8 +883,9 @@ tile_prov_select.on_change('value',change_tiles_callback)
 HOVERTOOL
 
 """
-display_columns1=df.columns
-from bokeh.models import HoverTool
+
+
+display_columns1=['rental_booked_at','rental_started_at', 'rental_ended_at', 'vehicle_id', 'customer_id']
 TOOLTIP1=HoverTool()
 TOOLTIP_list1=['<b style="color:MediumSeaGreen;">'+name_cols+':'+'</b><b>'+' @{'+name_cols+'}</b>' for name_cols in display_columns1]
 #TOOLTIP=[(name_cols,'@{'+name_cols+'}') for name_cols in display_columns]
@@ -891,7 +900,6 @@ TOOLTIP1.tooltips= """
 
 
 display_columns2=['Hex_Count','Hex_No']
-from bokeh.models import HoverTool
 TOOLTIP2=HoverTool()
 TOOLTIP_list2=['<b style="color:MediumSeaGreen;">'+name_cols+':'+'</b><b>'+' @{'+name_cols+'}</b>' for name_cols in display_columns2]
 #TOOLTIP=[(name_cols,'@{'+name_cols+'}') for name_cols in display_columns]
@@ -920,11 +928,18 @@ from bokeh.palettes import Oranges,OrRd,RdYlGn,Reds
 
 color_mapper = LinearColorMapper(palette=RdYlGn[5])
 
-color_mapper.high=max(df_aggreg['value'])
-color_mapper.low=min(df_aggreg['value'])
+#color_mapper.high=max(df_aggreg['value'])
+#color_mapper.low=min(df_aggreg['value'])
 
+
+
+geo_source = GeoJSONDataSource()
+
+geo_source.geojson=json.dumps({"type":"FeatureCollection","features":[{"type":"Feature","id":"832830fffffffff","geometry":{"type":"Polygon","coordinates":[[[] for x in range(1)]]},"properties":{'Hex_Count': 1, 'Hex_No': '27'}}]})
+ 
 p.patches('xs', 'ys', fill_alpha=0.7, fill_color={'field': 'Hex_Count', 'transform': color_mapper},
           line_color='white', line_width=0.5, source=geo_source)
+
 
 
 color_bar = ColorBar(color_mapper=color_mapper, ticker= BasicTicker(),
@@ -935,16 +950,14 @@ color_bar = ColorBar(color_mapper=color_mapper, ticker= BasicTicker(),
 p.add_layout(color_bar, 'right')
 
 
-from bokeh.io import output_file, show 
-
 #output_file("hex_tile.html")
 
 
 #VERIFICATION STUFF
 dictionary={}
-for col_name in df.columns:
+for col_name in ['mrc_start_long','mrc_start_lat']:
 # if col_name not in [X,Y]:
-  dictionary[col_name]=df[col_name]
+  dictionary[col_name]=[]
 datapoints_source= ColumnDataSource() 
 datapoints_source.data = dictionary
 
@@ -962,9 +975,9 @@ circle_plot=p.circle(x='mrc_start_long', y='mrc_start_lat',
 #df['y']=df['mrc_start_lat']
 dictionary2={}
 
-for col_name in df.columns:
+for col_name in ['mrc_end_long','mrc_end_lat']:
 # if col_name not in [X,Y]:
-  dictionary2[col_name]=df[col_name]
+  dictionary2[col_name]=[]
 end_datapoints_source= ColumnDataSource() 
 end_datapoints_source.data = dictionary2
 
@@ -977,18 +990,18 @@ end_circle_plot=p.circle(x='mrc_end_long', y='mrc_end_lat',
 
 
 #show(p)
-df['haversine_distance']=df.apply(haversine,axis=1)
+#df['haversine_distance']=df.apply(haversine,axis=1)
 
-global fd
-fd=df.copy() 
+#global fd
+#fd=df.copy() 
 
 source = ColumnDataSource(dict(
-        x=df['mrc_start_long'],
-        y=df['mrc_start_lat'],
-        x1=df['mrc_end_long'],
-        y1=df['mrc_end_lat'],
-        cx=(df['mrc_start_long']+df['mrc_end_long'])/2,
-        cy=df['mrc_start_lat']+df['haversine_distance']/8,
+        x=[],
+        y=[],
+        x1=[],
+        y1=[],
+        cx=[],
+        cy=[],
     )
 )
 
@@ -1000,8 +1013,8 @@ glyph = p.quadratic(x0="x", y0="y", x1="x1", y1="y1",cx='cx',cy='cy', line_color
 carsharing_text = Div(text='<h2 style="color:darkslategray;font-family: "Lucida Console", Courier, monospace;">Carsharing Journey Tracking Tool</h2>',
 width=500, height=40)
 
-    
-pdict['ms']=max(df['rental_started_at'])
+"""    
+#pdict['ms']=max(df['rental_started_at'])
 
 pdict['geo_source.geojson']=geo_source.geojson
 pdict['datapoints_source.data']=dictionary
@@ -1014,7 +1027,7 @@ pdict['source.data']=dict(
         cx=(df['mrc_start_long']+df['mrc_end_long'])/2,
         cy=df['mrc_start_lat']+df['haversine_distance']/8,
     )
-
+"""
 
 
 
@@ -1255,25 +1268,34 @@ def hex_filter_callback(attr,old,new):
     
 
 
+
 #hex_filter_no.on_change('value',hex_filter_callback)
+
+
 
 layout = column(row(carsharing_text,height=70),row(
             column(
                     row(widgetbox(pre),height=100),
                 
                 p,
+                
+                
                 #widgetbox(hovertool_widget)
                 width=700),   
                 #widgetbox(slider,width=350),
                 #widgetbox(Min_n, width=300),
                 #Percent,
                 column(row(height=100),main_tab,
-                width=400),    
+                width=400),
             
-        ),#row(widgetbox(date_text)),
+        ),row(height=10), row(file_input),#row(widgetbox(date_text)),
                 #row(widgetbox(date_widget,width=1400)),
                 width=1500)
 
+
+
+print(type(p))
+#layout=row(p,file_input)
 
 curdoc().add_root(layout)
 curdoc().title = 'EOIs'
