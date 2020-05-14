@@ -829,6 +829,7 @@ p = figure(
 #    y_range=(minlat, maxlat),
     x_axis_type=map_repr,
     y_axis_type=map_repr,
+    plot_width=800,
     #title='IDLE Vehicles Map',
     match_aspect=True,
     tools="pan,wheel_zoom,box_zoom,tap,box_select,reset,save"
@@ -1264,7 +1265,7 @@ layout = column(row(carsharing_text,height=70),row(
                 
                 p,
                 #widgetbox(hovertool_widget)
-                width=700),   
+                width=850),   
                 #widgetbox(slider,width=350),
                 #widgetbox(Min_n, width=300),
                 #Percent,
